@@ -1,12 +1,21 @@
+# This module resulted from the C++ implementation of KMC methods for nano-particle networks 
+# and builds the interface between the mean-field method and Jonas Mensings code.
+# For this to work, it is required to compile and install a C++ library and convert it to python.
+# This gives rise to the package "np_network".
+
+##########################################################################
+
 import np_network as np_net
+
 import numpy as np
 import pandas as pd
 from typing import Tuple, List
 
-##########################################################################
-#################    Added by Evan #######################################
-##########################################################################
+from module.components import CONST
 
+##########################################################################
+################# Added by Evan ##########################################
+##########################################################################
 
 def build_network(N_x, N_y, N_z, input_pos, output_pos, control_pos):
 
@@ -14,10 +23,12 @@ def build_network(N_x, N_y, N_z, input_pos, output_pos, control_pos):
     N_i, N_o, N_c   = len(input_pos), len(output_pos), len(control_pos)
 
     # Permittivity Values
-    eps_r, eps_s    = 2.6, 3.9
+    eps_r = CONST.eps_r
+    eps_s = CONST.eps_s
 
     # Nanoparticle radius and spacing in between
-    r_NP, d_NP      = 10.0, 1.0
+    r_NP = CONST.r_NP
+    d_NP = CONST.d_NP
 
     # Init dictonaries
     capacitance_values                  = init_capacitance_values(eps_r=eps_r, eps_s=eps_s, radius=r_NP, distance=d_NP)
@@ -25,16 +36,19 @@ def build_network(N_x, N_y, N_z, input_pos, output_pos, control_pos):
                                             input_positions=input_pos, output_positions=output_pos, control_positions=control_pos)
 
     # Init network topology class and electrostatic class
-    network_cubic, electrostatics       = electrostatics_cubic_network(network_info=network_info, electrode_positions=electrode_positions,
+    _, electrostatics       = electrostatics_cubic_network(network_info=network_info, electrode_positions=electrode_positions,
                                             capacitance_values=capacitance_values)
+    
+    cap_mat = electrostatics.capacitance_matrix
 
-    return capacitance_values, electrostatics
+    capacitance_values.update({"cap_mat": cap_mat})
+
+    return capacitance_values
 
 
 ##########################################################################
+#################### Added by Jonas ######################################
 ##########################################################################
-##########################################################################
-
 
 
 
