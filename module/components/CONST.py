@@ -9,7 +9,7 @@ kb = 1.380649e-05               # Boltzmannkonstante [aJ/K]
 
 
 # Resistance of tunnel junctions
-tunnel_resistance = 2.5e-11     # Tunnelwiderstand [1/a Ohm]
+tunnel_resistance = 2.5e7     # Tunnelwiderstand [Ohm]
 
 
 # Temperature [K]

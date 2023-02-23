@@ -1,7 +1,7 @@
 import numpy as np
 
 import module.base.capacitance
-import module.components.CONST
+import module.components.CONST as CONST
 
 
 class Network:
@@ -54,6 +54,7 @@ class Network:
         input_voltages      :   list of voltages for each input electrode
         output_voltages     :   list of voltages for each output electrode
         control_voltages    :   list of voltages for each control electrode
+        gate_voltage        :   voltage of the gate
         """
 
     	#for no input: set all voltages to zero
@@ -134,3 +135,20 @@ class Network:
         F = 0.5 * q.T @ self.inv_cap_mat @ q
 
         return F
+    
+    def calc_rate(self, dF):
+        """
+        Calculates the tunnel-rate for a given difference in free energy dF where dF = F_final - F_initial
+
+        Returns: tunnel rate
+        """
+
+        eps = 10e-16             # dF = 0 excluded
+        dF = np.where(dF == 0, eps, dF)
+
+        # clipping for safety
+        exponential = np.clip(dF/ CONST.kb / CONST.temperature, a_min = None, a_max = 200)
+
+        rate = -dF / CONST.electron_charge ** 2 / CONST.tunnel_resistance / (1 - np.exp(exponential))
+
+        return rate
