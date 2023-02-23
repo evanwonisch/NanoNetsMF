@@ -20,5 +20,5 @@ temperature = 0.28
 eps_r, eps_s    = 2.6, 3.9
 
 
-# Nanoparticle radius and spacing in between
+# Nanoparticle radius and spacing in between [nm]
 r_NP, d_NP      = 10.0, 1.0

@@ -18,6 +18,69 @@ from module.components import CONST
 ##########################################################################
 
 def build_network(N_x, N_y, N_z, input_pos, output_pos, control_pos):
+    """
+    Calculates the capacities of the network.
+    
+    Parameters:
+
+    Nx, Ny, Nz : int
+        dimensions of the network
+
+    input_pos : list
+        index positions as a list of 3-tuples representing the index coordinates
+
+    output_pos, control_pos : list
+        analogous
+
+    Returns: dictionary
+        "node" : node capacity
+        "lead" : lead capacity between nodes and electrodes
+        "self" : self capacity wrt. the Si-substrate
+
+    """
+
+    # Tests for dimensions
+
+    assert N_x > 0, "invalid network dimensions"
+    assert N_y > 0, "invalid network dimensions"
+    assert N_z > 0, "invalid network dimensions"
+
+    # Tests for electrode positions
+    for pos in input_pos:
+        assert len(pos) == 3, "no valid electrode position"
+
+        assert pos[0] >= 0, "no valid electrode position"
+        assert pos[0] < N_x, "no valid electrode position"
+
+        assert pos[1] >= 0, "no valid electrode position"
+        assert pos[1] < N_y, "no valid electrode position"
+
+        assert pos[2] >= 0, "no valid electrode position"
+        assert pos[2] < N_z, "no valid electrode position"
+
+    for pos in output_pos:
+        assert len(pos) == 3, "no valid electrode position"
+
+        assert pos[0] >= 0, "no valid electrode position"
+        assert pos[0] < N_x, "no valid electrode position"
+
+        assert pos[1] >= 0, "no valid electrode position"
+        assert pos[1] < N_y, "no valid electrode position"
+
+        assert pos[2] >= 0, "no valid electrode position"
+        assert pos[2] < N_z, "no valid electrode position"
+
+    for pos in control_pos:
+        assert len(pos) == 3, "no valid electrode position"
+
+        assert pos[0] >= 0, "no valid electrode position"
+        assert pos[0] < N_x, "no valid electrode position"
+
+        assert pos[1] >= 0, "no valid electrode position"
+        assert pos[1] < N_y, "no valid electrode position"
+
+        assert pos[2] >= 0, "no valid electrode position"
+        assert pos[2] < N_z, "no valid electrode position"
 
     # Number of inputs, Outputs, Controls
     N_i, N_o, N_c   = len(input_pos), len(output_pos), len(control_pos)
@@ -29,6 +92,7 @@ def build_network(N_x, N_y, N_z, input_pos, output_pos, control_pos):
     # Nanoparticle radius and spacing in between
     r_NP = CONST.r_NP
     d_NP = CONST.d_NP
+
 
     # Init dictonaries
     capacitance_values                  = init_capacitance_values(eps_r=eps_r, eps_s=eps_s, radius=r_NP, distance=d_NP)
