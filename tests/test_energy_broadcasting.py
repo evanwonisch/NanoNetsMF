@@ -2,7 +2,7 @@ import numpy as np
 from module.base.network import Network
 
 N = 4
-net = Network(2,2,1,[],[],[])
+net = Network(2,2,1,[])
 
 # with broadcasting
 occupations = np.array([[[1,0,0,0],[0,0,0,0]],[[0,0,0,0],[1,1,1,1]]])
