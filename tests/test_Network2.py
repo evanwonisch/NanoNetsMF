@@ -15,5 +15,5 @@ F1 = net.calc_free_energy(n)
 F2 = net.calc_free_energy(m)
 
 print("dF:", F2 - F1)
-print("rate:", net.calc_rate(F2 - F1))
+print("rate:", net.calc_rate_internal(F2 - F1))
 

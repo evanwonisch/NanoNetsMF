@@ -1,6 +1,7 @@
 import numpy as np
 
 import module.base.capacitance
+import module.components.utils as utils
 import module.components.CONST as CONST
 
 
@@ -127,16 +128,48 @@ class Network:
         """
         Calculates the total free energy
         occupation_unmbers   :   number of electrons on each island
-        """
-        assert occupation_numbers.shape == (self.N_particles,), "Wrong number of particles"
 
+        Thereby opccupation number can have an arbitrary leading shape
+        as long as the last dimenion is of size N_particles, thus
+        shape = (..., N_particle)
+
+        The free energies are returned in the same format expect for the missing last dimension
+        """
+        assert occupation_numbers.shape[-1] == self.N_particles, "Wrong number of particles"
+
+        # calculate free energy
         q = module.components.CONST.electron_charge * occupation_numbers + self.dq
 
-        F = 0.5 * q.T @ self.inv_cap_mat @ q
+        q_ = np.matmul(self.inv_cap_mat, np.expand_dims(q, axis = -1))
+        q_ = np.squeeze(q_, axis = -1)
+
+
+        F = 0.5 * np.sum(q * q_, axis = -1)
 
         return F
     
-    def calc_rate(self, dF):
+    def calc_potentials(self, occupation_numbers):
+        """
+        Calculates the potentials for each island
+        occupation_numbers   :   number of electrons on each island
+
+        Thereby opccupation number can have an arbitrary leading shape
+        as long as the last dimenion is of size N_particles, thus
+        shape = (..., N_particle)
+
+        The potentials are returned in the same format
+        """
+        assert occupation_numbers.shape[-1] == self.N_particles, "Wrong number of particles"
+
+        # calculate free energy
+        q = module.components.CONST.electron_charge * occupation_numbers + self.dq
+
+        q_ = np.matmul(self.inv_cap_mat, np.expand_dims(q, axis = -1))
+        q_ = np.squeeze(q_, axis = -1)
+
+        return q_
+    
+    def calc_rate_internal(self, dF):
         """
         Calculates the tunnel-rate for a given difference in free energy dF where dF = F_final - F_initial
 
@@ -152,3 +185,27 @@ class Network:
         rate = -dF / CONST.electron_charge ** 2 / CONST.tunnel_resistance / (1 - np.exp(exponential))
 
         return rate
+    
+    def calc_rate_island(self, occupation_numbers, alpha, beta):
+        """
+        Calculates the tunnel rates for jumps between islands.
+        
+        Here a jump from island with index alpha to island with index beta is considered, given the current
+        occupation numbers of the system. This can be done in parallel by prepending additional dimensions to
+        occupation_numbers, alpha and beta:
+
+        shape(occupation_numbers)   = (..., N_particles)
+        shape(alpha)                = (...)
+        shape(beta)                 = (...)
+        """
+
+        # expand alpha and beta to categoricals which can be used to modify the charge vector
+        exp_a = utils.to_categorical(alpha, self.N_particles)
+        exp_b = utils.to_categorical(beta, self.N_particles)
+
+        # calculate the difference in free energy and then the tunnel rates
+        F1 = self.calc_free_energy(occupation_numbers)
+        F2 = self.calc_free_energy(occupation_numbers - exp_a + exp_b)
+        dF = F2 - F1
+
+        return self.calc_rate(dF)

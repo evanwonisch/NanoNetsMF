@@ -9,9 +9,9 @@ net.set_voltage_config([1],[],[], 0)
 
 print("Thermal Energy:", CONST.kb * CONST.temperature, "aJ")
 print("Rate per Energy (approx):", 1/CONST.electron_charge**2/CONST.tunnel_resistance)
-print("Rate for -1aJ:", net.calc_rate(-1))
+print("Rate for -1aJ:", net.calc_rate_internal(-1))
 
-print("Rate for 0aJ:", net.calc_rate(0))
+print("Rate for 0aJ:", net.calc_rate_internal(0))
 print("Rate for 0aJ (exact)", CONST.kb * CONST.temperature / CONST.electron_charge**2 / CONST.tunnel_resistance)
 
 
@@ -19,7 +19,7 @@ print("END")
 
 # plot tunnel rates
 dF = np.linspace(-0.10,0.10,100)
-rates = net.calc_rate(dF)
+rates = net.calc_rate_internal(dF)
 np.savetxt("out/rates.csv",np.stack((dF, rates), axis = 1))
 
 plt.figure()
@@ -28,7 +28,7 @@ T = [0.26,10,100,400]
 
 for i in range(len(T)):
     CONST.temperature = T[i]
-    rates = net.calc_rate(dF)
+    rates = net.calc_rate_internal(dF)
     plt.plot(dF, rates, label = "T = " +  "{:10.4f}".format(CONST.temperature) + "K")
 
 dF = np.linspace(-0.11,0,100)
