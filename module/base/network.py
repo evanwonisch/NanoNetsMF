@@ -6,18 +6,15 @@ import module.components.CONST as CONST
 
 
 class Network:
-    def __init__(self, Nx, Ny, Nz, input_pos, output_pos, control_pos):
+    def __init__(self, Nx, Ny, Nz, electrode_pos):
         """
         Creates a network topology.
 
         Nx, Ny, Nz : int
             dimensions of the network
 
-        input_pos : list
+        electrode_pos : list
             index positions as a list of 3-tuples representing the index coordinates
-
-        output_pos, control_pos : list
-            analogous
         """
 
         # Defines Network size
@@ -28,17 +25,16 @@ class Network:
         self.N_particles = Nx * Ny * Nz
 
         # Specifies electrode attachment
-        self.input_pos = input_pos
-        self.output_pos = output_pos
-        self.control_pos = control_pos
+        self.electrode_pos = electrode_pos
 
         # Calculates the inverse capacity matrix
-        self.capacities = module.base.capacitance.build_network(Nx, Ny, Nz, input_pos, output_pos, control_pos)
+        self.capacities = module.base.capacitance.build_network(Nx, Ny, Nz, electrode_pos)
         self.inv_cap_mat = np.linalg.inv(self.capacities["cap_mat"])
 
         # Sets all applied voltages to zero and thus calculates dq
         self.dq = None                  # represents induced charges by voltage of electrodes
-        self.voltage_config = None
+        self.electrode_voltages = None
+        self.gate_voltage = None
         self.set_voltage_config()
 
 
@@ -49,51 +45,35 @@ class Network:
         return index_x + self.Nx * index_y + self.Nx * self.Ny * index_z
 
 
-    def set_voltage_config(self, input_voltages = None, output_voltages = None, control_voltages = None, gate_voltage = None):
+    def set_voltage_config(self, electrode_voltages = None, gate_voltage = None):
         """
         Sets all voltages applied to the network. Sets them to zero if nothing is given.
-        input_voltages      :   list of voltages for each input electrode
-        output_voltages     :   list of voltages for each output electrode
-        control_voltages    :   list of voltages for each control electrode
+        electrode_voltages      :   list of voltages for each electrode electrode
         gate_voltage        :   voltage of the gate
         """
 
     	#for no input: set all voltages to zero
-        if input_voltages == None:
-
-            self.voltage_config =  {
-                'input_voltages'   : np.zeros(len(self.input_pos)),
-                'output_voltages'  : np.zeros(len(self.output_pos)),
-                'control_voltages' : np.zeros(len(self.control_pos)),
-                'gate_voltage'     : 0
-            }
-
+        if electrode_voltages == None:
+            self.electrode_voltages = np.zeros(len(self.electrode_pos))
+            self.gate_voltage = 0
             self.calc_induced_charges()
             return
 
         #for inputs: check dimensions and apply
-        assert input_voltages != None, "Please specify input voltages"
-        assert output_voltages != None, "Please specify output voltages"
-        assert control_voltages != None, "Please specify control voltages"
+        assert electrode_voltages != None, "Please specify electrode voltages"
         assert gate_voltage != None, "Please specify gate voltage"
 
-        assert len(input_voltages) == len(self.input_pos), "Wrong number of input voltages"
-        assert len(output_voltages) == len(self.output_pos), "Wrong number of output voltages"
-        assert len(control_voltages) == len(self.control_pos), "Wrong number of control voltages"
+        assert len(electrode_voltages) == len(self.electrode_pos), "Wrong number of electrode voltages"
 
-        self.voltage_config =  {
-            'input_voltages'   : input_voltages,
-            'output_voltages'  : output_voltages,
-            'control_voltages' : control_voltages,
-            'gate_voltage'     : gate_voltage
-        }
+        self.electrode_voltages = electrode_voltages
+        self.gate_voltage = gate_voltage
 
         self.calc_induced_charges()
 
     def calc_induced_charges(self):
         """
         This calculates and stores what needs to be added to the elementary system-charges
-        to calculate the charge vector. The in/out/control charges will be added only to
+        to calculate the charge vector. The electrode charges will be added only to
         particles whose positions are specified for the electrodes.
         The gate voltage will be apllied to all particles concerning the self-capacitance.
 
@@ -105,22 +85,13 @@ class Network:
         c_electrode = self.capacities['lead']    #Kapazität zu den Elektroden
         c_gate = self.capacities["self"]         #Kapazität zum Gate
 
-        ## input electrodes
-        for i, (x,y,z) in enumerate(self.input_pos):
+        ## electrodes
+        for i, (x,y,z) in enumerate(self.electrode_pos):
             list_index = self.get_index(x,y,z)
-            dq[list_index] += self.voltage_config['input_voltages'][i] * c_electrode
+            dq[list_index] += self.electrode_voltages[i] * c_electrode
 
-        ## output electrodes
-        for i, (x,y,z) in enumerate(self.output_pos):
-            list_index = self.get_index(x,y,z)
-            dq[list_index] += self.voltage_config['output_voltages'][i] * c_electrode
-
-        ## control electrodes
-        for i, (x,y,z) in enumerate(self.control_pos):
-            list_index = self.get_index(x,y,z)
-            dq[list_index] += self.voltage_config['control_voltages'][i] * c_electrode
-
-        dq += c_gate * self.voltage_config['gate_voltage']
+        ## gate
+        dq += c_gate * self.gate_voltage
 
         self.dq = dq
 
@@ -208,4 +179,4 @@ class Network:
         F2 = self.calc_free_energy(occupation_numbers - exp_a + exp_b)
         dF = F2 - F1
 
-        return self.calc_rate(dF)
+        return self.calc_rate_internal(dF)

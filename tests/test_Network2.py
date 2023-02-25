@@ -4,8 +4,8 @@ import numpy as np
 
 # Crearing network object
 
-net = Network(2,2,1,[[0,0,0]],[[1,1,0]],[])
-net.set_voltage_config([1],[0],[], 0)
+net = Network(2,2,1,[[0,0,0], [1,1,0]])
+net.set_voltage_config([1,0], 0)
 
 #  hopping vers output
 n = np.array([1,0,0,0])
