@@ -179,4 +179,4 @@ class Network:
         F2 = self.calc_free_energy(occupation_numbers - exp_a + exp_b)
         dF = F2 - F1
 
-        return self.calc_rate(dF)
+        return self.calc_rate_internal(dF)
