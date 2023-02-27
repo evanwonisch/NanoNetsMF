@@ -6,6 +6,8 @@ import numpy as np
 
 net = Network(2,2,1,[[0,0,0]])
 
+print(net.get_linear_indices([[0,0,0],[1,0,0],[0,1,0],[1,1,0]]), "should be 0 1 2 3")
+
 print(net.dq)
 print(net.inv_cap_mat)
 print(net.electrode_voltages)
