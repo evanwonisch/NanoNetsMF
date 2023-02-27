@@ -93,6 +93,50 @@ class Network:
         cond = np.stack([cond,cond,cond], axis = -1)
 
         return np.where(cond, cartesian_indices, -1)
+    
+    
+    def get_nearest_neighbours(self, linear_indices):
+        """
+        For a given array of linear indices, all the linear indices of the next neighbours are calculated. Thus another dimension is appended
+        to the input shape with size 6 allowing for each of the possible 6 next neighbours to occur. If a next neighbour isn't there because
+        it would be outside of the network or the linear index lies outside, -1 is given as indices for the neighbour/-s.
+
+        The six next neghbours are given in the following order. The first two for the x - 1 and x + 1 neighbours. Then for y and then for z.
+
+        Inputs:
+            linear_indices  :   the indices for wich to calculate the neighbour positions
+
+        Outputs:
+            the neighbour positions for each input position
+
+        """
+
+        cartesian = self.get_cartesian_indices(linear_indices)
+
+        # x-neighbours
+        x1 = np.add(cartesian, [-1,0,0]) #left
+        x2 = np.add(cartesian, [1,0,0])  #right
+        ix1 = self.get_linear_indices(x1)
+        ix2 = self.get_linear_indices(x2)
+
+        # y-neighbours
+        y1 = np.add(cartesian, [0,-1,0]) #left
+        y2 = np.add(cartesian, [0,1,0])  #right
+        iy1 = self.get_linear_indices(y1)
+        iy2 = self.get_linear_indices(y2)
+
+        # z-neighbours
+        z1 = np.add(cartesian, [0,0,-1]) #left
+        z2 = np.add(cartesian, [0,0,1])  #right
+        iz1 = self.get_linear_indices(z1)
+        iz2 = self.get_linear_indices(z2)
+
+        cond = np.logical_and(linear_indices >= 0, linear_indices < self.N_particles)
+        cond = np.repeat(np.expand_dims(cond, axis = -1), 6, axis = -1)
+
+        result = np.stack([ix1, ix2, iy1, iy2, iz1, iz2], axis = -1)
+
+        return np.where(cond, result, -1)
 
 
 
@@ -100,7 +144,7 @@ class Network:
         """
         Sets all voltages applied to the network. Sets them to zero if nothing is given.
         electrode_voltages      :   list of voltages for each electrode electrode
-        gate_voltage        :   voltage of the gate
+        gate_voltage            :   voltage of the gate
         """
 
     	#for no input: set all voltages to zero

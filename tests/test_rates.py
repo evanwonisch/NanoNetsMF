@@ -8,7 +8,7 @@ net = Network(2,2,1,[[0,0,0]])
 net.set_voltage_config([1], 0)
 
 print("Thermal Energy:", CONST.kb * CONST.temperature, "aJ")
-print("Rate per Energy (approx):", 1/CONST.electron_charge**2/CONST.tunnel_resistance)
+print("Rate in linear regime (approx):", 1/CONST.electron_charge**2/CONST.tunnel_resistance)
 print("Rate for -1aJ:", net.calc_rate_internal(-1))
 
 print("Rate for 0aJ:", net.calc_rate_internal(0))

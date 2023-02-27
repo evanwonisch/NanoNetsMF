@@ -7,7 +7,7 @@ import numpy as np
 net = Network(2,2,1,[[0,0,0], [1,1,0]])
 net.set_voltage_config([1,0], 0)
 
-#  hopping vers output
+#  hopping towards output
 n = np.array([1,0,0,0])
 m = np.array([0,1,0,0])
 
