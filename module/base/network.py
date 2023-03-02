@@ -8,7 +8,8 @@ import module.components.CONST as CONST
 class Network:
     def __init__(self, Nx, Ny, Nz, electrode_pos):
         """
-        Creates a network topology.
+        Creates a network topology. This is to manage the network architecture, broadcastable tunnel-rate calculation and nearest-neighbour relationships.
+        It is not to account for the actual charge configurations on each nanoparticle, because this description differs between different simulation approaches.
 
         Nx, Ny, Nz : int
             dimensions of the network
@@ -263,6 +264,9 @@ class Network:
         shape(occupation_numbers)   = (..., N_particles)
         shape(alpha)                = (...)
         shape(beta)                 = (...)
+
+        It is important to note that this function gives rise to non-zero tunnel-rates eventhough if the two islands are not connected by
+        a neirest neighbour tunnel-junction
         """
 
         # expand alpha and beta to categoricals which can be used to modify the charge vector
