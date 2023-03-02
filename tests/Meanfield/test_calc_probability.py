@@ -12,6 +12,6 @@ occ = np.array([[[16.17410522, 18.49276232, 23.45403068, 11.1422785 ],
 
  [[ 9.14831688, 19.33463189, 21.3374962,  12.9502747 ],
   [17.87378285, 14.48118671,  6.5975802,  15.22911196]]])
-prob = mf.calc_porbability(occ, island_index, microstates)
+prob = mf.calc_probability(occ, island_index, microstates)
 print(occ)
 print(prob)

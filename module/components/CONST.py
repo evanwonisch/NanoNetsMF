@@ -9,7 +9,7 @@ kb = 1.380649e-05               # Boltzmannkonstante [aJ/K]
 
 
 # Resistance of tunnel junctions
-tunnel_resistance = 2.5e7     # Tunnelwiderstand [Ohm]
+tunnel_resistance = 0.025     # Tunnelwiderstand [Giga-Ohm] -> makes time unit to nanoseconds
 
 
 # Temperature [K]
