@@ -6,26 +6,16 @@ class MeanField:
     """
     This class implements the meanfield solution algorithmn for charge configurations in gold-nanoparticle networks.
     """
-    def __init__(self, network : Network, macrostate = None):
+    def __init__(self, network : Network):
         """
         Creates a meanfield solver for a given Network instance.
 
         Parameters:
             network     :   instance of Network class containing network topology
-            macrostate  :   initial average occupation numbers of electrons on each island
         """
 
         # save network
         self.network = network
-
-        if macrostate is None:
-            macrostate = np.zeros((self.network.N_particles,))
-        
-        assert len(macrostate.shape) == 1, "no valid macrostate was given"
-        assert macrostate.shape[0] == self.network.N_particles, "wrong number of particles in macrostate"
-
-        # initialise macrostate
-        self.macrostate = macrostate
 
         # indices of islands to wich current is flowing
         self.island_indices = np.arange(self.network.N_particles)
@@ -54,38 +44,51 @@ class MeanField:
         self.boolean_mask_B = np.repeat(self.boolean_mask_B, self.network.N_particles, axis = 0)
         self.boolean_mask_B = np.repeat(self.boolean_mask_B, 6, axis = 1)
 
-        # simulation parameters
-        self.dt = 1e-2 #nanoseconds
-        self.t = 0
 
-    def evolve(self, steps = 100):
+    def rate_of_change(self, macrostate):
         """
-        Evolves the macrostate according to meanfield method by a given number of steps.
+        Calculates the rate of change of the macrostate.
         """
 
-        for _ in range(steps):
+        assert len(macrostate.shape) == 1, "only one macrosate accepted"
+        assert macrostate.shape[0] == self.network.N_particles, "wrong number of particles for macrostate"
 
-            # electrodes
-            for i, pos in enumerate(self.network.electrode_pos):
-                self.macrostate[self.network.get_linear_indices(pos)] += self.calc_expected_electrode_current(i) * self.dt
+        d_state = np.zeros(macrostate.shape)
 
-            # neighbours
-            self.macrostate += self.calc_expected_island_currents() * self.dt
+        # electrodes
+        for i, pos in enumerate(self.network.electrode_pos):
+            d_state[self.network.get_linear_indices(pos)] += self.calc_expected_electrode_current(macrostate, i)
 
-            # time
-            self.t += self.dt
+        # neighbours
+        d_state += self.calc_expected_island_currents(macrostate)
+
     
-
-    def calc_expected_island_currents(self):
+    def calc_expected_island_currents(self, macrostate):
         """
         For the current macrostate, the currents contributing to charge movement are calculated for all islands.
         This does not calculate the currents from electrodes.
         """
 
+        assert len(macrostate.shape) == 1, "only one macrosate accepted"
+        assert macrostate.shape[0] == self.network.N_particles, "wrong number of particles for macrostate"
+
+        rates = self.calc_expected_island_currents_internal(macrostate)
+
+        return np.sum(rates, axis = 1)
+
+    def calc_expected_island_currents_internal(self, macrostate):
+        """
+        For the current macrostate, the currents contributing to charge movement are calculated for all islands and are separated for each nearest neighbour.
+        This function gets used in the main function wich then summs over all nearest neighbours.
+        """
+
+        assert len(macrostate.shape) == 1, "only one macrosate accepted"
+        assert macrostate.shape[0] == self.network.N_particles, "wrong number of particles for macrostate"
+
         # axis = 0  :   listing all nanoparticles
         # axis = 1  :   listing all nearest_neighbours
         # axis = 2  :   different microstate configurations
-        expanded_state = np.expand_dims(self.macrostate, axis = [0,1,2])
+        expanded_state = np.expand_dims(macrostate, axis = [0,1,2])
         expanded_state = np.repeat(expanded_state, self.network.N_particles, axis = 0)
         expanded_state = np.repeat(expanded_state, 6, axis = 1)
         expanded_state = np.repeat(expanded_state, 4, axis = 2)
@@ -99,29 +102,33 @@ class MeanField:
 
         rates = self.antisymmetric_tunnel_rate_islands(effective_states, self.neighbour_indices, self.island_indices) * p1 * p2 *  self.neighbour_mask
 
-        return np.sum(rates, (1,2))
+        return np.sum(rates, axis = 2)
+
     
-    def calc_expected_electrode_current(self, electrode_index):
+    def calc_expected_electrode_current(self, macrostate, electrode_index):
         """
         For a given electrode index, the expected current to the corresponding island is calculated in terms of meanfield.
         """
+
+        assert len(macrostate.shape) == 1, "only one macrosate accepted"
+        assert macrostate.shape[0] == self.network.N_particles, "wrong number of particles for macrostate"
 
         assert electrode_index in range(len(self.network.electrode_pos)), "no valid electrode index given"
 
         island_index = self.network.get_linear_indices(self.network.electrode_pos[electrode_index])
 
-        effective_state_ground =    self.effective_operator(self.macrostate, island_index, np.array(True))
-        p_ground               =    self.calc_probability(self.macrostate, island_index, np.array(True))
+        effective_state_ground =    self.effective_operator(macrostate, island_index, np.array(True))
+        p_ground               =    self.calc_probability(macrostate, island_index, np.array(True))
 
-        effective_state_ceiling =    self.effective_operator(self.macrostate, island_index, np.array(False))
-        p_ceiling               =    self.calc_probability(self.macrostate, island_index, np.array(False))
+        effective_state_ceiling =    self.effective_operator(macrostate, island_index, np.array(False))
+        p_ceiling               =    self.calc_probability(macrostate, island_index, np.array(False))
 
         rate1 = p_ground * self.antisymmetric_tunnel_rate_electrode(effective_state_ground, electrode_index)
         rate2 = p_ceiling * self.antisymmetric_tunnel_rate_electrode(effective_state_ceiling, electrode_index)
 
         return rate1 + rate2
 
-    def effective_operator(self, macrostates, island_indices, microstates):
+    def effective_operator(self, macrostates, island_indices, groundstate):
         """
         Implements the effective operator and thus calculates the effective state.
 
@@ -130,12 +137,12 @@ class MeanField:
         Parameters:
             macrostates     :   numpy array of macrostates
             island_indices  :   numpy array defining wich island's occupation number to modify
-            microstates     :   array containing either True to define the ground state or False to define the ceiling state
+            groundstate     :   array containing either True to define the ground state or False to define the ceiling state
 
         Here, all arguments can have an arbitrary shape, except for macrostates, wich in the last dimension carry occupation numbers for each island, thus:
         shape(macrostates)      =   (..., N_particles)
         shape(island_indices)   =   (...)
-        shape(microstates)      =   (...) 
+        shape(groundstate)      =   (...) 
 
         Returns:
             The effective state.
@@ -145,33 +152,33 @@ class MeanField:
 
         flat_macro = np.copy(macrostates.reshape((-1, self.network.N_particles))) # copy array
         flat_indices = island_indices.flatten()
-        flat_microstates = microstates.flatten()
+        flat_groundstate = groundstate.flatten()
         n = flat_indices.shape[0]
 
         ground = np.floor(flat_macro[np.arange(n), flat_indices])
         ceil = np.ceil(flat_macro[np.arange(n), flat_indices])
 
-        flat_macro[np.arange(n), flat_indices] = np.where(flat_microstates, ground, ceil)
+        flat_macro[np.arange(n), flat_indices] = np.where(flat_groundstate, ground, ceil)
 
         return flat_macro.reshape(macrostates.shape)
     
     
-    def calc_probability(self, macrostates, island_indices, microstates):
+    def calc_probability(self, macrostates, island_indices, groundstate):
         """
         Calculates the probability for an effective state to occur.
 
-        For given macrostates with arbitrary leading shape, the probability of the by island_indices and microstates corresponding effective state
+        For given macrostates with arbitrary leading shape, the probability of the by island_indices and groundstate corresponding effective state
         is calculated. This is just the difference between the floor or ceiling state and the average state at the selected island.
 
         Parameters:
             macrostates     :   numpy array of macrostates
             island_indices  :   numpy array defining wich island's occupation number to account for
-            microstates     :   array containing either True to define the ground state or False to define the ceiling state
+            groundstate     :   array containing either True to define the ground state or False to define the ceiling state
 
         Here, all arguments can have an arbitrary shape, except for macrostates, wich in the last dimension carry occupation numbers for each island, thus:
         shape(macrostates)       =   (..., N_particles)
         shape(island_indices)    =   (...)
-        shape(microstates)       =   (...) 
+        shape(groundstate)       =   (...) 
 
         Returns:
             The probabilties of the effective states occuring.
@@ -181,14 +188,14 @@ class MeanField:
 
         flat_macro = macrostates.reshape((-1, self.network.N_particles)) # copy array
         flat_indices = island_indices.flatten()
-        flat_microstates = microstates.flatten()
+        flat_groundstate = groundstate.flatten()
         n = flat_indices.shape[0]
 
         ground = np.floor(flat_macro[np.arange(n), flat_indices])
 
         ps = flat_macro[np.arange(n), flat_indices] - ground
 
-        prob = np.where(flat_microstates, 1 - ps, ps)
+        prob = np.where(flat_groundstate, 1 - ps, ps)
 
         return prob.reshape(island_indices.shape)
     

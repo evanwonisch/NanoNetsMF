@@ -191,6 +191,23 @@ class Network:
 
         self.dq = dq
 
+    def calc_charge_vector(self, occupation_numbers):
+        """
+        For given occupation numbers, which specify the amount of excess charge. The full charge configuration is calculated.
+
+        Thereby opccupation_numbers can have an arbitrary leading shape
+        as long as the last dimenion is of size N_particles, thus
+        shape = (..., N_particle)
+        """
+
+        assert occupation_numbers.shape[-1] == self.N_particles, "Wrong number of particles"
+
+        q = module.components.CONST.electron_charge * occupation_numbers + self.dq
+
+        return q
+
+
+
     def calc_free_energy(self, occupation_numbers):
         """
         Calculates the total free energy
@@ -205,10 +222,9 @@ class Network:
         assert occupation_numbers.shape[-1] == self.N_particles, "Wrong number of particles"
 
         # calculate free energy
-        q = module.components.CONST.electron_charge * occupation_numbers + self.dq
+        q = self.calc_charge_vector(occupation_numbers)
 
-        q_ = np.matmul(self.inv_cap_mat, np.expand_dims(q, axis = -1))
-        q_ = np.squeeze(q_, axis = -1)
+        q_ = self.calc_potentials(occupation_numbers)
 
 
         F = 0.5 * np.sum(q * q_, axis = -1)
@@ -243,15 +259,17 @@ class Network:
         Returns: tunnel rate
         """
 
-        eps = 10e-16             # dF = 0 excluded
-        dF = np.where(dF == 0, eps, dF)
+        eps = 1e-15             # dF = 0 excluded
+        dF_ = np.where(dF == 0, eps, dF)
 
         # clipping for safety
-        exponential = np.clip(dF/ CONST.kb / CONST.temperature, a_min = None, a_max = 200)
+        exponential = np.clip(dF_/ CONST.kb / CONST.temperature, a_min = None, a_max = 200)
 
-        rate = -dF / CONST.electron_charge ** 2 / CONST.tunnel_resistance / (1 - np.exp(exponential))
+        rate = -dF_ / CONST.electron_charge ** 2 / CONST.tunnel_resistance / (1 - np.exp(exponential))
 
-        return rate
+        zero_rate = CONST.kb * CONST.temperature / CONST.electron_charge**2 / CONST.tunnel_resistance
+
+        return np.where(dF != 0, rate, zero_rate)
     
     def calc_rate_island(self, occupation_numbers, alpha, beta):
         """
