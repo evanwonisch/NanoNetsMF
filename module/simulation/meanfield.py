@@ -33,13 +33,13 @@ class MeanField:
     def calc_total_currents(self, macrostate):
         """
         For a given macrostate of shape (N_particles,), this calculates all the currents flowing to the nanoparticles. This sums over all nearest neighbours and includes electrodes.
-        The current is given in units of electron charges in aC/ns.
+        The current is given in electron charges per ns.
         """
 
         currents = np.sum(self.calc_expected_island_currents(macrostate), axis = 1)
 
-        for i, pos in self.network.electrode_positions:
-            particle_index = self.network.calc_linear_indices(pos)
+        for i, pos in enumerate(self.network.electrode_pos):
+            particle_index = self.network.get_linear_indices(pos)
             currents[particle_index] += self.calc_expected_electrode_current(macrostate, electrode_index = i)
 
         return currents
@@ -86,13 +86,13 @@ class MeanField:
         particle_index = self.network.get_linear_indices(self.network.electrode_pos[electrode_index])
 
         # ground state
-        ground_state = self.effective_operator(macrostate, particle_index, True)
-        p_ground = self.calc_probability(macrostate, particle_index, True)
+        ground_state = self.effective_operator(macrostate, particle_index, np.array(True))
+        p_ground = self.calc_probability(macrostate, particle_index, np.array(True))
         current_ground = self.antisymmetric_tunnel_rate_electrode(ground_state, electrode_index)
 
         # ceiling state
-        ceiling_state = self.effective_operator(macrostate, particle_index, False)
-        p_ceiling = self.calc_probability(macrostate, particle_index, False)
+        ceiling_state = self.effective_operator(macrostate, particle_index, np.array(False))
+        p_ceiling = self.calc_probability(macrostate, particle_index, np.array(False))
         current_ceiling = self.antisymmetric_tunnel_rate_electrode(ceiling_state, electrode_index)
 
         return current_ground * p_ground + current_ceiling * p_ceiling
