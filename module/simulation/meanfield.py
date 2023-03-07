@@ -30,6 +30,58 @@ class MeanField:
         # neighbour mask to later remove tunnel rates from non-existing nearest_neighbours
         self.neighbour_mask = np.where(self.neighbour_indices != -1, 1, 0)
 
+    def confidence_based_solve(self, macrostate = None, eps = 1e-2, N_max = 100):
+        """
+        Solves for the equilibrium state in the current network configuration by a confidence based algoritmn. The state will be searched until the total current for each
+        island is less than eps.
+
+        Raises an exception if no appropriate solution is found within N_max steps.
+        """
+
+        assert eps > 0, "eps must be greater than zero"
+
+        gamma = 1.2 # confidence step increase
+        lambd = 0.5 # confidence reduction
+        
+        # initial condition
+        if macrostate is None:
+            macrostate = np.zeros(self.network.N_particles)
+        currents = self.calc_total_currents(macrostate)
+        
+        # initial step
+        step = 1/(np.sqrt(np.sum(currents**2)) + eps) * currents
+
+        for i in range(N_max):
+            if np.all(np.abs(currents) < eps): return macrostate
+
+            # forward step
+            a = np.sign(currents) * 1e-8 + np.clip(step * gamma, a_min = -1, a_max = 1)
+
+            # change direction
+            b = -lambd * step
+
+            step = np.where(currents * step >= 0, a, b)
+
+            # update
+            macrostate = macrostate + step
+            currents = self.calc_total_currents(macrostate)
+
+        raise RuntimeError("confidence-based-solve was not able to find a soution in the given amount of steps")
+    
+    def numeric_integration_solve(self, macrostate = None, dt = 0.1, N = 50):
+        """
+        Integrates the currents over time to find a steady solution.
+        """
+
+        if macrostate is None:
+            macrostate = np.zeros(self.network.N_particles)
+
+        for i in range(N):
+            macrostate += self.calc_total_currents(macrostate) * dt
+
+        return macrostate
+
+
     def calc_total_currents(self, macrostate):
         """
         For a given macrostate of shape (N_particles,), this calculates all the currents flowing to the nanoparticles. This sums over all nearest neighbours and includes electrodes.
