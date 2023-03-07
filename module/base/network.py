@@ -208,16 +208,16 @@ class Network:
 
 
 
-    def calc_free_energy(self, occupation_numbers):
+    def calc_internal_energy(self, occupation_numbers):
         """
-        Calculates the total free energy
+        Calculates the total internal electrostatic energy
         occupation_unmbers   :   number of electrons on each island
 
         Thereby opccupation number can have an arbitrary leading shape
         as long as the last dimenion is of size N_particles, thus
         shape = (..., N_particle)
 
-        The free energies are returned in the same format expect for the missing last dimension
+        The internal energies are returned in the same format expect for the missing last dimension
         """
         assert occupation_numbers.shape[-1] == self.N_particles, "Wrong number of particles"
 
@@ -292,8 +292,8 @@ class Network:
         exp_b = utils.to_categorical(beta, self.N_particles)
 
         # calculate the difference in free energy and then the tunnel rates
-        F1 = self.calc_free_energy(occupation_numbers)
-        F2 = self.calc_free_energy(occupation_numbers - exp_a + exp_b)
+        F1 = self.calc_internal_energy(occupation_numbers)
+        F2 = self.calc_internal_energy(occupation_numbers - exp_a + exp_b)
         dF = F2 - F1
 
         return self.calc_rate_internal(dF)
@@ -319,9 +319,9 @@ class Network:
 
         exp_island_index = utils.to_categorical(island_index, self.N_particles)
 
-        F1 = self.calc_free_energy(occupation_numbers)
-        F2 = self.calc_free_energy(occupation_numbers - exp_island_index)
-        dF = F2 - F1
+        F1 = self.calc_internal_energy(occupation_numbers)
+        F2 = self.calc_internal_energy(occupation_numbers - exp_island_index)
+        dF = F2 - F1 + CONST.electron_charge * self.electrode_voltages[electrode_index]
 
         return self.calc_rate_internal(dF)
     
@@ -346,9 +346,9 @@ class Network:
 
         exp_island_index = utils.to_categorical(island_index, self.N_particles)
 
-        F1 = self.calc_free_energy(occupation_numbers)
-        F2 = self.calc_free_energy(occupation_numbers + exp_island_index)
-        dF = F2 - F1
+        F1 = self.calc_internal_energy(occupation_numbers)
+        F2 = self.calc_internal_energy(occupation_numbers + exp_island_index)
+        dF = F2 - F1 - CONST.electron_charge * self.electrode_voltages[electrode_index]
 
         return self.calc_rate_internal(dF)
     

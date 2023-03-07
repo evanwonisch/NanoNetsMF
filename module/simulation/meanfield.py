@@ -30,7 +30,20 @@ class MeanField:
         # neighbour mask to later remove tunnel rates from non-existing nearest_neighbours
         self.neighbour_mask = np.where(self.neighbour_indices != -1, 1, 0)
 
+    def calc_total_currents(self, macrostate):
+        """
+        For a given macrostate of shape (N_particles,), this calculates all the currents flowing to the nanoparticles. This sums over all nearest neighbours and includes electrodes.
+        The current is given in units of electron charges in aC/ns.
+        """
 
+        currents = np.sum(self.calc_expected_island_currents(macrostate), axis = 1)
+
+        for i, pos in self.network.electrode_positions:
+            particle_index = self.network.calc_linear_indices(pos)
+            currents[particle_index] += self.calc_expected_electrode_current(macrostate, electrode_index = i)
+
+        return currents
+        
 
     def calc_expected_island_currents(self, macrostate):
         """
@@ -61,6 +74,28 @@ class MeanField:
 
         return final_currents
     
+    def calc_expected_electrode_current(self, macrostate, electrode_index):
+        """
+        Calculates the expected current flowing to the nanoparticle connected to electrode at electrode_index.
+        """
+
+        assert len(macrostate.shape) == 1, "only one macrosate accepted"
+        assert macrostate.shape[0] == self.network.N_particles, "wrong number of particles for macrostate"
+        assert electrode_index in range(len(self.network.electrode_pos)), "no valid electrode index"
+
+        particle_index = self.network.get_linear_indices(self.network.electrode_pos[electrode_index])
+
+        # ground state
+        ground_state = self.effective_operator(macrostate, particle_index, True)
+        p_ground = self.calc_probability(macrostate, particle_index, True)
+        current_ground = self.antisymmetric_tunnel_rate_electrode(ground_state, electrode_index)
+
+        # ceiling state
+        ceiling_state = self.effective_operator(macrostate, particle_index, False)
+        p_ceiling = self.calc_probability(macrostate, particle_index, False)
+        current_ceiling = self.antisymmetric_tunnel_rate_electrode(ceiling_state, electrode_index)
+
+        return current_ground * p_ground + current_ceiling * p_ceiling
 
     
     def calc_effective_states(self, macrostate, neighbour_in_ground_state = True, island_in_ground_state = True):

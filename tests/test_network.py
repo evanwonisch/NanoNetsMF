@@ -80,18 +80,18 @@ class TestNetwork:
                          [-1,  4,  0,  6, -1, 12]])
         assert np.allclose(neighbours, sol), "wrong nearest-neighbour indices"
 
-    def test_free_energy(self): 
+    def test_internal_energy(self): 
         """
         Checks if free energy calculation behaves according to saved data
         """
         net = Network(5,5,1,[[0,0,0],[4,4,0]])
         net.set_voltage_config([0.1,-0.1],0)
 
-        n = np.loadtxt("tests/data/free_energy/n.csv")
-        F_target = np.loadtxt("tests/data/free_energy/F.csv")
-        F = net.calc_free_energy(n)
+        n = np.loadtxt("tests/data/internal_energy/n.csv")
+        U_target = np.loadtxt("tests/data/internal_energy/U.csv")
+        U = net.calc_internal_energy(n)
 
-        assert np.allclose(F_target, F), "free energy calculation deviates from original"
+        assert np.allclose(U_target, U), "free energy calculation deviates from original"
 
     def test_energy_broadcasting(self):
         """
@@ -102,13 +102,13 @@ class TestNetwork:
 
         # with broadcasting
         occupations = np.array([[[1,0,0,0],[0,0,0,0]],[[0,0,0,0],[1,1,1,1]]])
-        assert net.calc_free_energy(occupations).shape == (2,2), "invalid shape broadcasting"
+        assert net.calc_internal_energy(occupations).shape == (2,2), "invalid shape broadcasting"
 
         # without broadcasting
         occupations = np.array([1,0,0,0])
-        assert net.calc_free_energy(occupations).shape == (), "invalid shape broadcasting"
+        assert net.calc_internal_energy(occupations).shape == (), "invalid shape broadcasting"
 
-    def test_free_energy2(self):
+    def test_internal_energy2(self):
         """
         Checks if free energy is equal for equivalent situations
         """
@@ -116,12 +116,12 @@ class TestNetwork:
         net.set_voltage_config([], 0)
 
         n = np.array([[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]])
-        F = net.calc_free_energy(n)
+        U = net.calc_internal_energy(n)
 
-        assert F.shape == (4,), "wrong shape of free energies"
-        assert F[0] == pytest.approx(F[1]), "energies should be equal"
-        assert F[0] == pytest.approx(F[2]), "energies should be equal"
-        assert F[0] == pytest.approx(F[3]), "energies should be equal"
+        assert U.shape == (4,), "wrong shape of free energies"
+        assert U[0] == pytest.approx(U[1]), "energies should be equal"
+        assert U[0] == pytest.approx(U[2]), "energies should be equal"
+        assert U[0] == pytest.approx(U[3]), "energies should be equal"
 
         
     def test_rates_internal(self):
@@ -172,8 +172,8 @@ class TestNetwork:
         rates_to_electrode = net.calc_rate_to_electrode(n, electrode_index)
         rates_from_electrode = net.calc_rate_from_electrode(n , electrode_index)
 
-        assert rates_to_electrode == pytest.approx(9.536216917196967e-87)
-        assert rates_from_electrode == pytest.approx(1.8233375750556335)
+        assert rates_to_electrode == pytest.approx(18.07519097)
+        assert rates_from_electrode == pytest.approx(3.202710038178024e-86)
 
         n = np.random.randn(3,3,4)
         rates1 = net.calc_rate_to_electrode(n, 0)
