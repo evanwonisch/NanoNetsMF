@@ -285,8 +285,8 @@ class Network:
         shape(alpha)                = (...)
         shape(beta)                 = (...)
 
-        It is important to note that this function gives rise to non-zero tunnel-rates eventhough if the two islands are not connected by
-        a neirest neighbour tunnel-junction
+        It is important to note that this function gives rise to non-zero tunnel-rates eventhough the two islands are not connected by
+        a neirest neighbour tunnel-junction.
         """
 
         # expand alpha and beta to categoricals which can be used to modify the charge vector

@@ -1,7 +1,7 @@
 import numpy as np
 
 #
-# kiendly copied from tensorflow Github: https://github.com/tensorflow/tensorflow/blob/master/tensorflow/python/keras/utils/np_utils.py
+# gratefully used from tensorflow Github: https://github.com/tensorflow/tensorflow/blob/master/tensorflow/python/keras/utils/np_utils.py
 #
 def to_categorical(y, num_classes=None, dtype='float32'):
     """Converts a class vector (integers) to binary class matrix.
