@@ -6,6 +6,9 @@ import module.components.CONST as CONST
 
 class TestNetwork:
 
+    def relative_error(self, value, target):
+        return np.abs(value - target) / target
+
     def test_electrostatics(self):
         """
         Test if applying voltages and induced charges work right.
@@ -87,8 +90,8 @@ class TestNetwork:
         net = Network(5,5,1,[[0,0,0],[4,4,0]])
         net.set_voltage_config([0.1,-0.1],0)
 
-        n = np.loadtxt("tests/data/internal_energy/n.csv")
-        U_target = np.loadtxt("tests/data/internal_energy/U.csv")
+        n = np.loadtxt("tests/testdata/internal_energy/n.csv")
+        U_target = np.loadtxt("tests/testdata/internal_energy/U.csv")
         U = net.calc_internal_energy(n)
 
         assert np.allclose(U_target, U), "free energy calculation deviates from original"
@@ -119,9 +122,9 @@ class TestNetwork:
         U = net.calc_internal_energy(n)
 
         assert U.shape == (4,), "wrong shape of free energies"
-        assert U[0] == pytest.approx(U[1]), "energies should be equal"
-        assert U[0] == pytest.approx(U[2]), "energies should be equal"
-        assert U[0] == pytest.approx(U[3]), "energies should be equal"
+        assert self.relative_error(U[0], U[1]) < 1e-15, "energies should be equal"
+        assert self.relative_error(U[0], U[2]) < 1e-15, "energies should be equal"
+        assert self.relative_error(U[0], U[3]) < 1e-15, "energies should be equal"
 
         
     def test_rates_internal(self):
@@ -131,12 +134,12 @@ class TestNetwork:
         net = Network(2,2,1,[[0,0,0]])
         net.set_voltage_config([1], 0)
 
-        assert 1/CONST.electron_charge**2/CONST.tunnel_resistance == pytest.approx(net.calc_rate_internal(-1)), "wrong rate in linear regime"
+        assert self.relative_error(1/CONST.electron_charge**2/CONST.tunnel_resistance, net.calc_rate_internal(-1)) < 1e-20, "wrong rate in linear regime"
 
-        assert net.calc_rate_internal(0) == pytest.approx(CONST.kb * CONST.temperature / CONST.electron_charge**2 / CONST.tunnel_resistance), "wrong rate for dF = 0"
+        assert self.relative_error(net.calc_rate_internal(0), CONST.kb * CONST.temperature / CONST.electron_charge**2 / CONST.tunnel_resistance) < 1e-20, "wrong rate for dF = 0"
 
         # check other energies
-        dF, sol = np.loadtxt("tests/data/rates/rates.csv", unpack = True)
+        dF, sol = np.loadtxt("tests/testdata/rates/rates.csv", unpack = True)
         rates = net.calc_rate_internal(dF)
 
         assert np.allclose(rates, sol), "wrong rate calculations"
@@ -148,16 +151,16 @@ class TestNetwork:
         net = Network(2,2,1, [])
         net.set_voltage_config([], 0)
 
-        n = np.array([[2,0,0,0],[0,2,0,0],[0,0,2,0],[2,0,0,0]])
+        n = np.array([[1,0,0,0],[0,1,0,0],[0,0,1,0],[1,0,0,0]])
         alpha = np.array([0,1,2,0])
         beta = np.array([1,3,3,2])
 
         rates = net.calc_rate_island(n, alpha, beta)
 
         assert rates.shape == (4,), "invalid shape of rates"
-        assert rates[0] == pytest.approx(rates[1]), "rates should be equal"
-        assert rates[0] == pytest.approx(rates[2]), "rates should be equal"
-        assert rates[0] == pytest.approx(rates[3]), "rates should be equal"
+        assert self.relative_error(rates[0], rates[1]) < 1e-22, "rates should be equal"
+        assert self.relative_error(rates[0], rates[2]) < 1e-22, "rates should be equal"
+        assert self.relative_error(rates[0], rates[3]) < 1e-22, "rates should be equal"
 
     def test_rates_electrode(self):
         """
@@ -165,15 +168,6 @@ class TestNetwork:
         """
         net = Network(2,2,1,[[0,0,0]])
         net.set_voltage_config([-0.1], 0)
-
-        n = np.array([0,0,0,0])
-        electrode_index = 0
-
-        rates_to_electrode = net.calc_rate_to_electrode(n, electrode_index)
-        rates_from_electrode = net.calc_rate_from_electrode(n , electrode_index)
-
-        assert rates_to_electrode == pytest.approx(18.07519097)
-        assert rates_from_electrode == pytest.approx(3.202710038178024e-86)
 
         n = np.random.randn(3,3,4)
         rates1 = net.calc_rate_to_electrode(n, 0)
@@ -184,3 +178,44 @@ class TestNetwork:
         with pytest.raises(AssertionError):
             _ = net.calc_rate_to_electrode(n, 1)
             _ = net.calc_rate_from_electrode(n, 1)
+
+    def test_rates_comparison(self):
+        """
+        Checks if the rates equal to the KMC-model calculations.
+        """
+
+        net = Network(2,2,1,[[0,0,0], [1,1,0]])
+        net.set_voltage_config([0.1, 0.0], 0.0)
+        state = np.zeros(4)
+
+        # rates from KMC model
+
+        # input electrode
+        assert self.relative_error(net.calc_rate_from_electrode(state, 0), 18.08179571417591) < 1e-8
+        assert net.calc_rate_to_electrode(state, 0) == pytest.approx(0)
+
+        # output electrode
+        assert net.calc_rate_from_electrode(state, 1) == pytest.approx(0)
+        assert net.calc_rate_to_electrode(state, 1) == pytest.approx(0)
+
+        # inter-particle-rates
+        assert self.relative_error(net.calc_rate_island(state, 0, 1), 1.056664437782643e-76) < 1e-4
+        assert self.relative_error(net.calc_rate_island(state, 0, 2), 1.056664437782643e-76) < 1e-4
+
+    def test_rates_comparison2(self):
+        """
+        Checks if the rates equal to the KMC-model calculations.
+        """
+        net = Network(2,2,1,[[0,0,0], [1,1,0]])
+        net.set_voltage_config([0.01, 0.0], 0.1)
+        state = np.zeros(4)
+
+        # rates from KMC model
+
+        # input electrodes
+        assert net.calc_rate_from_electrode(state, 0) == pytest.approx(0)
+        assert self.relative_error(net.calc_rate_to_electrode(state, 0), 15.727086322720085) < 1e-7
+
+        # output electrodes
+        assert net.calc_rate_from_electrode(state, 1) == pytest.approx(0)
+        assert self.relative_error(net.calc_rate_to_electrode(state, 1), 17.81773816105172) < 1e-8

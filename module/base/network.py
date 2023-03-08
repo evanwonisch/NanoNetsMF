@@ -259,17 +259,19 @@ class Network:
         Returns: tunnel rate
         """
 
-        eps = 1e-15             # dF = 0 excluded
+        eps = 1e-3             # dF = 0 excluded
         dF_ = np.where(dF == 0, eps, dF)
 
         # clipping for safety
+        # only affects positive energies
         exponential = np.clip(dF_/ CONST.kb / CONST.temperature, a_min = None, a_max = 200)
 
         rate = -dF_ / CONST.electron_charge ** 2 / CONST.tunnel_resistance / (1 - np.exp(exponential))
 
         zero_rate = CONST.kb * CONST.temperature / CONST.electron_charge**2 / CONST.tunnel_resistance
 
-        return np.where(dF != 0, rate, zero_rate)
+        # abschneiden vermeidet massive floating point errors bei 0 +- 1e-22.. der fehler liegt bei rate +- 1e-10
+        return np.where(np.abs(dF) <= 1e-13, zero_rate, rate)
     
     def calc_rate_island(self, occupation_numbers, alpha, beta):
         """
