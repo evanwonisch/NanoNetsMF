@@ -289,14 +289,16 @@ class Network:
         a neirest neighbour tunnel-junction.
         """
 
-        # expand alpha and beta to categoricals which can be used to modify the charge vector
-        exp_a = utils.to_categorical(alpha, self.N_particles)
-        exp_b = utils.to_categorical(beta, self.N_particles)
+        # calc capactity entries
+        C_aa = self.inv_cap_mat[alpha, alpha]
+        C_bb = self.inv_cap_mat[beta, beta]
+        C_ab = self.inv_cap_mat[alpha, beta]
 
-        # calculate the difference in free energy and then the tunnel rates
-        F1 = self.calc_internal_energy(occupation_numbers)
-        F2 = self.calc_internal_energy(occupation_numbers - exp_a + exp_b)
-        dF = F2 - F1
+        # calc required potentials
+        phi_alpha = np.sum(self.inv_cap_mat[alpha, :] * self.calc_charge_vector(occupation_numbers), axis = -1)
+        phi_beta = np.sum(self.inv_cap_mat[beta, :] * self.calc_charge_vector(occupation_numbers), axis = -1)
+
+        dF = CONST.electron_charge * (phi_beta - phi_alpha) + 0.5 * CONST.electron_charge ** 2 * (C_aa + C_bb - 2 * C_ab)
 
         return self.calc_rate_internal(dF)
     
@@ -319,11 +321,13 @@ class Network:
 
         island_index = self.get_linear_indices(self.electrode_pos[electrode_index])
 
-        exp_island_index = utils.to_categorical(island_index, self.N_particles)
+        # calc capactity entries
+        C_ii = self.inv_cap_mat[island_index, island_index]
 
-        F1 = self.calc_internal_energy(occupation_numbers)
-        F2 = self.calc_internal_energy(occupation_numbers - exp_island_index)
-        dF = F2 - F1 + CONST.electron_charge * self.electrode_voltages[electrode_index]
+        # calc required potentials
+        phi_i = np.sum(self.inv_cap_mat[island_index, :] * self.calc_charge_vector(occupation_numbers), axis = -1)
+
+        dF = 0.5 * CONST.electron_charge ** 2 * C_ii + CONST.electron_charge * (self.electrode_voltages[electrode_index] - phi_i)
 
         return self.calc_rate_internal(dF)
     
@@ -346,11 +350,13 @@ class Network:
 
         island_index = self.get_linear_indices(self.electrode_pos[electrode_index])
 
-        exp_island_index = utils.to_categorical(island_index, self.N_particles)
+        # calc capactity entries
+        C_ii = self.inv_cap_mat[island_index, island_index]
 
-        F1 = self.calc_internal_energy(occupation_numbers)
-        F2 = self.calc_internal_energy(occupation_numbers + exp_island_index)
-        dF = F2 - F1 - CONST.electron_charge * self.electrode_voltages[electrode_index]
+        # calc required potentials
+        phi_i = np.sum(self.inv_cap_mat[island_index, :] * self.calc_charge_vector(occupation_numbers), axis = -1)
+
+        dF = 0.5 * CONST.electron_charge ** 2 * C_ii + CONST.electron_charge * (phi_i - self.electrode_voltages[electrode_index])
 
         return self.calc_rate_internal(dF)
     

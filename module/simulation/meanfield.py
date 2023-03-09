@@ -30,29 +30,32 @@ class MeanField:
         # neighbour mask to later remove tunnel rates from non-existing nearest_neighbours
         self.neighbour_mask = np.where(self.neighbour_indices != -1, 1, 0)
 
-    def confidence_based_solve(self, macrostate = None, eps = 1e-2, N_max = 100):
+    def confidence_based_solve(self, macrostate = None, N = 100):
         """
-        Solves for the equilibrium state in the current network configuration by a confidence based algoritmn. The state will be searched until the total current for each
-        island is less than eps.
+        Solves for the equilibrium state in the current network configuration by a confidence based algoritmn. The state will be searched until N iterations are done.
 
-        Raises an exception if no appropriate solution is found within N_max steps.
+        Parameters:
+            macrostate  : state to begin with
+            N           : number of iterations
+
+        Returns:
+            macrostate
+            conv        : absolute value of the largest current flowing to one of the nanoparticles (should be zero for convergence)
         """
 
-        assert eps > 0, "eps must be greater than zero"
 
         gamma = 1.2 # confidence step increase
         lambd = 0.5 # confidence reduction
         
         # initial condition
         if macrostate is None:
-            macrostate = np.zeros(self.network.N_particles)
+            macrostate = np.random.randn(self.network.N_particles)
         currents = self.calc_total_currents(macrostate)
         
         # initial step
-        step = 1/(np.sqrt(np.sum(currents**2)) + eps) * currents
+        step = 1/(np.sqrt(np.sum(currents**2)) + 1e-5) * currents
 
-        for i in range(N_max):
-            if np.all(np.abs(currents) < eps): return macrostate
+        for i in range(N):
 
             # forward step
             a = np.sign(currents) * 1e-8 + np.clip(step * gamma, a_min = -1, a_max = 1)
@@ -66,11 +69,20 @@ class MeanField:
             macrostate = macrostate + step
             currents = self.calc_total_currents(macrostate)
 
-        raise RuntimeError("confidence-based-solve was not able to find a soution in the given amount of steps")
+        return macrostate
     
-    def numeric_integration_solve(self, macrostate = None, dt = 0.1, N = 50):
+    def numeric_integration_solve(self, macrostate = None, dt = 0.1, N = 100):
         """
         Integrates the currents over time to find a steady solution.
+
+        Parameters:
+            macrostate  : state to begin with
+            dt          : integration step
+            N           : number of iterations
+
+        Returns:
+            macrostate
+            conv        : absolute value of the largest current flowing to one of the nanoparticles (should be zero for convergence)
         """
 
         if macrostate is None:
@@ -79,7 +91,18 @@ class MeanField:
         for i in range(N):
             macrostate += self.calc_total_currents(macrostate) * dt
 
+    
         return macrostate
+
+    def convergence_metric(self, macrostate):
+        """
+        Calculates to what extend the given state is a fixed state.
+        Returns zero for a perfectly converged state.
+
+        Returns the maximum current flowing to one of the nanoparticles for the given state
+        """
+
+        return np.abs(self.calc_total_currents(macrostate)).max()
 
 
     def calc_total_currents(self, macrostate):
