@@ -219,3 +219,28 @@ class TestNetwork:
         # output electrodes
         assert net.calc_rate_from_electrode(state, 1) == pytest.approx(0)
         assert self.relative_error(net.calc_rate_to_electrode(state, 1), 17.81773816105172) < 1e-8
+
+    def test_rates_comparison3(self):
+        """
+        Checks if the rates equal to the KMC-model calculations.
+        """
+        net = Network(2,2,1,[[0,0,0], [1,1,0]])
+        net.set_voltage_config([0.1, 0.0], 0)
+        state = np.array([1,2,3,4.])
+
+        assert self.relative_error(net.calc_rate_from_electrode(state, 0), 6.40771288644026) < 1e-7
+        assert net.calc_rate_to_electrode(state, 0) == pytest.approx(0)
+
+        assert net.calc_rate_from_electrode(state, 1) == pytest.approx(0)
+        assert self.relative_error(net.calc_rate_to_electrode(state, 1), 23.600401440396942) < 1e-7
+
+        assert net.calc_rate_island(state, 0 , 1) == pytest.approx(0)
+        assert net.calc_rate_island(state, 0 , 2) == pytest.approx(0)
+        assert self.relative_error(net.calc_rate_island(state, 1, 0), 8.644413227684781e-78) < 1e-4
+        assert net.calc_rate_island(state, 1 , 3) == pytest.approx(0)
+        assert self.relative_error(net.calc_rate_island(state, 2, 0), 4.568875833859594) < 1e-8
+        assert net.calc_rate_island(state, 2 , 3) == pytest.approx(0)
+        assert self.relative_error(net.calc_rate_island(state, 3, 1), 2.1643040081313815) < 1e-8
+        assert net.calc_rate_island(state, 3 , 2) == pytest.approx(0)
+
+
