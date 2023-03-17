@@ -30,7 +30,7 @@ class MeanField:
         # neighbour mask to later remove tunnel rates from non-existing nearest_neighbours
         self.neighbour_mask = np.where(self.neighbour_indices != -1, 1, 0)
 
-    def confidence_based_solve(self, macrostate = None, N = 100):
+    def confidence_based_solve(self, macrostate = None, N = 100, verbose = False):
         """
         Solves for the equilibrium state in the current network configuration by a confidence based algoritmn. The state will be searched until N iterations are done.
 
@@ -69,9 +69,12 @@ class MeanField:
             macrostate = macrostate + step
             currents = self.calc_total_currents(macrostate)
 
+
+        if verbose:
+            print("convergence:", self.convergence_metric(macrostate))
         return macrostate
     
-    def numeric_integration_solve(self, macrostate = None, dt = 0.1, N = 100):
+    def numeric_integration_solve(self, macrostate = None, dt = 0.1, N = 100, verbose = False):
         """
         Integrates the currents over time to find a steady solution.
 
@@ -91,7 +94,8 @@ class MeanField:
         for i in range(N):
             macrostate += self.calc_total_currents(macrostate) * dt
 
-    
+        if verbose:
+            print("convergence:", self.convergence_metric(macrostate))
         return macrostate
 
     def convergence_metric(self, macrostate):

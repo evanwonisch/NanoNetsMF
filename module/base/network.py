@@ -149,15 +149,15 @@ class Network:
         """
 
     	#for no input: set all voltages to zero
-        if electrode_voltages == None:
+        if electrode_voltages is None:
             self.electrode_voltages = np.zeros(len(self.electrode_pos))
             self.gate_voltage = 0
             self.calc_induced_charges()
             return
 
         #for inputs: check dimensions and apply
-        assert electrode_voltages != None, "Please specify electrode voltages"
-        assert gate_voltage != None, "Please specify gate voltage"
+        assert not electrode_voltages is None, "Please specify electrode voltages"
+        assert not gate_voltage is None, "Please specify gate voltage"
 
         assert len(electrode_voltages) == len(self.electrode_pos), "Wrong number of electrode voltages"
 
