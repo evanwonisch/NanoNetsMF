@@ -1,6 +1,6 @@
 __pycache__
 .venv
 .pytest_cache
-output
 data
 *.prof
+.ipynb_checkpoints
