@@ -2,3 +2,5 @@ numpy
 pandas
 scipy
 pytest
+tensorflow
+tensorflow-probability
