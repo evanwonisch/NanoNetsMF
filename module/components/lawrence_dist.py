@@ -30,13 +30,15 @@ class LawrenceDist:
         if np.floor(mean) < self.phase_space_min :
             raise ValueError("mean is too close to phase space border")
         
-        if np.ceiling(mean) > self.phase_space_max - 1:
+        if np.ceil(mean) > self.phase_space_max - 1:
             raise ValueError("mean is too close to phase space border")
 
         probs = np.zeros(self.phase_space.shape)
         decimals = mean - np.floor(mean)
         low = np.where(self.phase_space == np.floor(mean))[0][0]
         probs[low] = 1 - decimals
-        probs[low + 1] = decimals
-        
+
+        if low + 1 < self.phase_space.shape[0]:
+            probs[low + 1] = decimals
+
         return probs
