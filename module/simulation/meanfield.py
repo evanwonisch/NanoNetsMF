@@ -115,16 +115,16 @@ class MeanField:
         The current is given in electron charges per ns.
         """
 
-        currents = np.sum(self.calc_expected_island_currents(macrostate), axis = 1)
+        currents = np.sum(self.calc_expected_island_rates(macrostate), axis = 1)
 
         for i, pos in enumerate(self.network.electrode_pos):
             particle_index = self.network.get_linear_indices(pos)
-            currents[particle_index] += self.calc_expected_electrode_current(macrostate, electrode_index = i)
+            currents[particle_index] += self.calc_expected_electrode_rates(macrostate, electrode_index = i)
 
         return currents
         
 
-    def calc_expected_island_currents(self, macrostate):
+    def calc_expected_island_rates(self, macrostate):
         """
         For the given macrostate the expected currents for all nanoparticles originating from their neighbours are calculated.
         Thereby, an expectation over all combinations of effective states, where either the neighbours or the target islands
@@ -153,7 +153,7 @@ class MeanField:
 
         return final_currents
     
-    def calc_expected_electrode_current(self, macrostate, electrode_index):
+    def calc_expected_electrode_rates(self, macrostate, electrode_index):
         """
         Calculates the expected current flowing to the nanoparticle connected to electrode at electrode_index.
         """

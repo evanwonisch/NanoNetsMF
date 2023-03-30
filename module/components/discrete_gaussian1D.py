@@ -13,6 +13,9 @@ class DiscreteGaussian1D:
             phase_space_min: integer of lowest accounted state
             phase_space_max: integer of highest accounted state
         """
+        self.phase_space_min = phase_space_min
+        self.phase_space_max = phase_space_max
+
         self.phase_space = np.arange(phase_space_min, phase_space_max)
 
     def calc_prob_internal(self, my, alpha):
@@ -73,7 +76,18 @@ class DiscreteGaussian1D:
     def calc_prob(self, mean, var):
         """
         Calculates a probability vector of shape = phase_space.shape for given mean and variance. It maximises entropy.
+
+        Throws an error if distribution is too close to phase space borders.
         """
+        if var < 0:
+            raise ValueError("variance must be positive")
+
+        if mean < self.phase_space_min + np.sqrt(var):
+            raise ValueError("mean is too close to phase space border")
+        
+        if mean > self.phase_space_max - np.sqrt(var):
+            raise ValueError("mean is too close to phase space border")
+
         my, alpha = self.get_param(mean, var)
         probs = self.calc_prob_internal(my, alpha)
         return probs

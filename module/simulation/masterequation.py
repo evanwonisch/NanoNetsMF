@@ -4,7 +4,7 @@ import module.components.CONST as CONST
 
 class MasterEquation:
     """
-    Solves the Master Equation for the single electron transistor
+    Solves the Master Equation for the single electron transistor.
     """
     def __init__(self, input_voltage, gate_voltage):
         """
@@ -74,7 +74,7 @@ class MasterEquation:
     
     def expected_current(self, probs):
         """
-        For given probabilities, calculates the expected output current.
+        For given probabilities, calculates the expected output current in nA.
         """
         rates = self.output_current(np.expand_dims(self.phase_space, axis = -1))
         return np.sum(rates * probs)
