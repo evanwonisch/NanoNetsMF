@@ -121,6 +121,9 @@ class SetMeanField2:
             gauss_mean += dt * gauss_dN
             gauss_var += dt * gauss_dvar
 
+            if gauss_var < 0:
+                gauss_var = 0
+
         if verbose:
             print("convergence:", self.convergence_metric(gauss_mean, gauss_var))
 

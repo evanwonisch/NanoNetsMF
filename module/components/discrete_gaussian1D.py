@@ -18,6 +18,16 @@ class DiscreteGaussian1D:
 
         self.phase_space = np.arange(phase_space_min, phase_space_max)
 
+    def calc_lawrence_1d(self, mean):
+        decimals = mean - np.floor(mean)
+        low = np.where(self.phase_space == np.floor(mean))[0][0]
+
+        pre = np.zeros(self.phase_space.shape)
+        pre[low] = 1 - decimals
+        pre[low + 1] = decimals
+
+        return pre
+
     def calc_prob_internal(self, my, alpha):
         """
         Internally calculates the probabilities for distribution parameters my and alpha.
@@ -26,16 +36,10 @@ class DiscreteGaussian1D:
         For too low alpha, Lawrence' distribution is resorted to.
         """
         alpha = np.abs(alpha)
-        decimals = my - np.floor(my)
 
-        if alpha <= decimals * (1 - decimals): # lawrence dist for too small variances
-            #low = np.where(self.phase_space == np.floor(my))[0][0]
-            #pre = np.zeros(self.phase_space.shape)
-            #pre[low] = 1 - decimals
-            #pre[low + 1] = decimals
-
-            #return pre
-            alpha = decimals * (1 - decimals)
+        thresh = 0.3
+        if alpha <= thresh: # outputs lawrence dist for small alpha parameter
+           return self.calc_lawrence_1d(my)
         
         pre = np.exp(-(self.phase_space - my)**2 / alpha)
         
@@ -49,18 +53,13 @@ class DiscreteGaussian1D:
         """
         target_mean = np.array(target_mean, dtype="float")
         target_var = np.array(target_var, dtype="float")
-        decimals = target_mean - np.floor(target_mean)
 
         # initial conditions
-        dt = 1
+        dt = 0.9
         my = np.copy(target_mean)
         alpha = np.copy(target_var)
 
-        opt_alpha = target_var > decimals * (1 - decimals)
-        if not opt_alpha:
-            alpha = 0
-
-        for i in range(10):
+        for i in range(20):
             probs = self.calc_prob_internal(my, alpha)
             mean = np.sum(self.phase_space * probs)
             var = np.sum(self.phase_space**2 * probs) - mean**2
@@ -69,8 +68,10 @@ class DiscreteGaussian1D:
             delta_var = target_var - var
 
             my += dt * delta_mean
-            if opt_alpha:
-                alpha += dt * delta_var
+            alpha += dt * delta_var
+
+            if alpha < 0: # restricts alpha to senseful intervall
+                alpha = 0
 
         return my, alpha
     
@@ -81,14 +82,18 @@ class DiscreteGaussian1D:
         Throws an error if distribution is too close to phase space borders.
         """
         if var < 0:
-            var = 0
-            #raise ValueError("variance must be positive")
+            raise ValueError("variance must be positive")
 
         if mean < self.phase_space_min + np.sqrt(var):
             raise ValueError("mean is too close to phase space border")
         
         if mean > self.phase_space_max - np.sqrt(var):
             raise ValueError("mean is too close to phase space border")
+        
+        # directly returns a lawrence dist if infeasable
+        decimals = mean - np.floor(mean)
+        if var < decimals * (1 - decimals):
+            return self.calc_lawrence_1d(mean)
 
         my, alpha = self.get_param(mean, var)
         probs = self.calc_prob_internal(my, alpha)
