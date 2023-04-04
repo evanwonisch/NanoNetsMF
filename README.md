@@ -12,13 +12,17 @@ I have implemented my own solution to the master equation and LMF and KMC lie in
 
 2. Due to theoretical advancements, I could see that LMF approximation lies in a simplified dummy-distribution to estimate expecation values. This approximation uses a probability distriubtion which, given its mean, assigns probability to the floor and ceiling value of the mean.
 
-It can be seen, that the output error current is positively correlated with error between LMF approximate distribution and the exact master equation distribution.
+3. It can be seen, that the output error current is positively correlated with error between LMF approximate distribution and the exact master equation distribution.
 
-## Second Order Meanfield
-1. By a second order method, we could improve the match between MF-approximate distribution and real distribution to get better expectation values. Notably for expect(I**2) and so on..
+## Second Order Meanfield (MF2)
+
+1. By a second order method, we could improve the match between MF-approximate distribution and real distribution to get better expectation values. Notably for expect(I**2) and so on.
 
 2. It is seen, that the correct distribution obtained by master equation statisfies the equilibrium properties of the first two moments.
 
+3. The second order Meanfield for the single-electron-transistor is implemented and with it the discrete gaussian and Lawrence' distribution. Convergence is stable. Now need for evaluation of MF2 wrt. Master Equation, LMF.
+
+4. The 2nd order method is a great improvement
 
 ## Implementation of Master Equation
 

@@ -75,6 +75,13 @@ class SetMeanField2:
         probs = self.gaussian.calc_prob(mean, var)
         return np.sum(self.output_current() * probs)
     
+    def calc_expected_squared_output_current(self, mean, var):
+        """
+        Calculates the expected squared output current in (nA)^2 for a given mean and variance
+        """
+        probs = self.gaussian.calc_prob(mean, var)
+        return np.sum(self.output_current() ** 2 * probs)
+    
     def convergence_metric(self, mean, var):
         """
         Calculates the maximum rate of change of either the mean or the variance.
@@ -117,4 +124,15 @@ class SetMeanField2:
         if verbose:
             print("convergence:", self.convergence_metric(gauss_mean, gauss_var))
 
-        return gauss_mean, gauss_var
+
+        ## Recalculate Mean and Variance
+        ##
+        ## because this gaussian merges into lawrence dist for too low variance,
+        ## the input becomes variance independant at some point.
+        ##
+        ## this might lead to gausian(mean, var) having a lower variance as var..
+        ##
+        gauss_probs = self.gaussian.calc_prob(gauss_mean, gauss_var)
+        mean = np.sum(self.phase_space * gauss_probs)
+        var = np.sum(self.phase_space ** 2 * gauss_probs) - mean**2
+        return mean, var

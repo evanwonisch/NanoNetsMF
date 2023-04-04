@@ -78,6 +78,13 @@ class MasterEquation:
         """
         rates = self.output_current(np.expand_dims(self.phase_space, axis = -1))
         return np.sum(rates * probs)
+    
+    def expected_squared_current(self, probs):
+        """
+        For given probabilities, calculates the expected squared output current in (nA)^2.
+        """
+        rates = self.output_current(np.expand_dims(self.phase_space, axis = -1))
+        return np.sum(rates ** 2 * probs)
         
     def output_current(self, state):
         """
@@ -85,7 +92,7 @@ class MasterEquation:
         """
         return -CONST.electron_charge * (self.net.calc_rate_from_electrode(state, 1) - self.net.calc_rate_to_electrode(state, 1))
     
-    def solve(self, probs = None, N = 1500, verbose = False):
+    def solve(self, probs = None, N = 1500, dt = 0.001, verbose = False):
         """
         Solves the Master Equation for N iterations. Prints the convergence metric if verbose.
         """
@@ -94,7 +101,7 @@ class MasterEquation:
             probs = probs / np.sum(probs)
 
         for i in range(N):
-            probs = self.evolve(probs, dt = 0.001)
+            probs = self.evolve(probs, dt)
 
         if verbose:
             print("convergence:", self.convergence_metric(probs))

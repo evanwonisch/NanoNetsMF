@@ -28,13 +28,14 @@ class DiscreteGaussian1D:
         alpha = np.abs(alpha)
         decimals = my - np.floor(my)
 
-        if alpha <= 0.3: # lawrence dist for too small variances
-            low = np.where(self.phase_space == np.floor(my))[0][0]
-            pre = np.zeros(self.phase_space.shape)
-            pre[low] = 1 - decimals
-            pre[low + 1] = decimals
+        if alpha <= decimals * (1 - decimals): # lawrence dist for too small variances
+            #low = np.where(self.phase_space == np.floor(my))[0][0]
+            #pre = np.zeros(self.phase_space.shape)
+            #pre[low] = 1 - decimals
+            #pre[low + 1] = decimals
 
-            return pre
+            #return pre
+            alpha = decimals * (1 - decimals)
         
         pre = np.exp(-(self.phase_space - my)**2 / alpha)
         
@@ -80,7 +81,8 @@ class DiscreteGaussian1D:
         Throws an error if distribution is too close to phase space borders.
         """
         if var < 0:
-            raise ValueError("variance must be positive")
+            var = 0
+            #raise ValueError("variance must be positive")
 
         if mean < self.phase_space_min + np.sqrt(var):
             raise ValueError("mean is too close to phase space border")
