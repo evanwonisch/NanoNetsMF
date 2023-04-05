@@ -108,9 +108,9 @@ class DiscreteGaussian2D:
         p_var_m = target_var_m
         p_cov = target_cov
 
-        dt = 1
+        dt = 0.5
         probs = None
-        for i in range(200):
+        for i in range(40):
             #current values
             probs = self.calc_prob_internal(p_mean_n, p_mean_m, p_var_n, p_var_m, p_cov)
             mean_n = np.sum(self.phase_space[:,:,0] * probs)
@@ -141,7 +141,7 @@ class DiscreteGaussian2D:
                 p_var_m = 0
 
 
-            return p_mean_n, p_mean_m, p_var_n, p_var_m, p_cov
+        return p_mean_n, p_mean_m, p_var_n, p_var_m, p_cov
     
     def calc_prob(self, mean_n, mean_m, var_n, var_m, cov):
         """
