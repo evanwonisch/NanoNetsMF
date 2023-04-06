@@ -22,7 +22,11 @@ I have implemented my own solution to the master equation and LMF and KMC lie in
 
 3. The second order Meanfield for the single-electron-transistor is implemented and with it the discrete gaussian and Lawrence' distribution. Convergence is stable. Now need for evaluation of MF2 wrt. Master Equation, LMF.
 
-4. The 2nd order method is a great improvement
+4. The 2nd order method is a great improvement for set
+
+5. A general 2nd order mean-field without covariance is implemented and converges to similar values than first order, which is a good sign.
+
+
 
 ## Implementation of Master Equation
 
