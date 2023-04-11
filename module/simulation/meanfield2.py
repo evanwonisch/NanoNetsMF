@@ -1,12 +1,12 @@
 import numpy as np
-
 from module.base.network import Network
 from module.components.discrete_gaussian1D import DiscreteGaussian1D
 from module.components.discrete_gaussian2D import DiscreteGaussian2D
+import module.components.CONST as CONST
 
 class MeanField2:
     """
-    Implements a full second-order meanfield solution algorithmn
+    Implements a full second-order meanfield solution algorithmn using a 2D-discrete gaussian with full covariance.
     """
     def __init__(self, network, include_covs = True):
         """
@@ -16,8 +16,8 @@ class MeanField2:
         """
         self.net = network
 
-        self.g2 = DiscreteGaussian2D(phase_space_bounds_n=(-5,5), phase_space_bounds_m=(-5,5))
-        self.g1 = DiscreteGaussian1D(phase_space_min=-5, phase_space_max=5)
+        self.g2 = DiscreteGaussian2D(phase_space_bounds_n=(-15,15), phase_space_bounds_m=(-15,15))
+        self.g1 = DiscreteGaussian1D(phase_space_min=-15, phase_space_max=15)
 
         self.neighbour_table = self.net.get_nearest_neighbours(np.arange(0, self.net.N_particles))
         self.island_indices = self.net.get_linear_indices(self.net.electrode_pos)
@@ -353,6 +353,14 @@ class MeanField2:
 
                     self.set_dcov(i, j, dcov - self.dmeans[i] * self.means[j] - self.means[i] * self.dmeans[j])
 
+    def calc_expected_electrode_current(self, electrode_index):
+        """
+        For the current stored moments, calculates the expected output current towards the electrode, specified by electrode index.
+        """
+        i = self.island_indices[electrode_index]
+        probs = self.g1.calc_prob(self.means[i], self.vars[i])
+        return -np.sum(probs * (self.calc_R_from_electrode(electrode_index) - self.calc_R_to_electrode(electrode_index))) * CONST.electron_charge
+
     def solve(self, dt = 0.05, N = 60, verbose = False, reset = False):
         """
         Integrates the moments in time.
@@ -376,8 +384,35 @@ class MeanField2:
             self.vars += dt * self.dvars
             self.covs += dt * self.dcovs
 
+            decimals = self.means - np.floor(self.means)
+            self.vars = np.where(self.vars < decimals * (1 - decimals), decimals * (1 - decimals), self.vars)
+
         if verbose:
             self.calc_deltas()
             print("convergence mean:", np.abs(self.dmeans).max())
-            print("convergence variances:", np.abs(self.dvars.max()))
+            print("convergence variances:", np.abs(self.dvars).max())
             print("convergence covariances:", np.abs(self.dcovs).max())
+
+    def calc_moments(self):
+        """
+        Recalculates and returns all moments, based on the current moments. This can reduce error, since
+        the moment stored as class members are not directly calculated with the 1D or 2D gaussian distributions.
+        """
+        means_ = np.zeros(self.net.N_particles)
+        vars_ = np.zeros(self.net.N_particles)
+        covs_ = np.zeros((self.net.N_particles, 6))
+
+        for i in range(self.net.N_particles):
+            probs = self.g1.calc_prob(self.means[i], self.vars[i])
+            means_[i] = np.sum(self.g1.phase_space * probs)
+            vars_[i] = np.sum(self.g1.phase_space ** 2 * probs) - means_[i] ** 2
+
+
+            if self.include_covs:
+                for index, j in enumerate(self.neighbour_table[i]):
+                    if not j == -1:
+                        probs = self.g2.calc_prob(self.means[i], self.means[j], self.vars[i], self.vars[j], self.get_cov(i, j))
+                        moment = np.sum(self.g2.phase_space[:,:,0] * self.g2.phase_space[:,:,1] * probs) - self.means[i] * self.means[j]
+                        covs_[i, index] = moment
+
+        return means_, vars_, covs_
