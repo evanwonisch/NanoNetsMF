@@ -2,7 +2,7 @@ import numpy as np
 
 from module.base.network import Network
 
-class MeanField:
+class QuickMeanField2:
     """
     This class implements a second order meanfield approximation accounting for means and variances.
     It utilises a generalised lawrence-distribution allowing not just for values adjacent to the mean, but also one step further.
@@ -31,269 +31,137 @@ class MeanField:
         # neighbour mask to later remove tunnel rates from non-existing nearest_neighbours
         self.neighbour_mask = np.where(self.neighbour_indices != -1, 1, 0)
 
-    def confidence_based_solve(self, macrostate = None, N = 100, verbose = False):
-        """
-        Solves for the equilibrium state in the current network configuration by a confidence based algoritmn. The state will be searched until N iterations are done.
+        # means
+        self.means = np.zeros(self.network.N_particles)
 
-        Parameters:
-            macrostate  : state to begin with
-            N           : number of iterations
+        # variances
+        self.vars = np.ones(self.network.N_particles)
 
-        Returns:
-            macrostate
-            conv        : absolute value of the largest current flowing to one of the nanoparticles (should be zero for convergence)
-        """
-
-
-        gamma = 1.2 # confidence step increase
-        lambd = 0.5 # confidence reduction
-        
-        # initial condition
-        if macrostate is None:
-            macrostate = np.random.randn(self.network.N_particles)
-        currents = self.calc_total_currents(macrostate)
-        
-        # initial step
-        step = 1/(np.sqrt(np.sum(currents**2)) + 1e-5) * currents
-
-        for i in range(N):
-
-            # forward step
-            a = np.sign(currents) * 1e-8 + np.clip(step * gamma, a_min = -1, a_max = 1)
-
-            # change direction
-            b = -lambd * step
-
-            step = np.where(currents * step >= 0, a, b)
-
-            # update
-            macrostate = macrostate + step
-            currents = self.calc_total_currents(macrostate)
-
-
-        if verbose:
-            print("convergence:", self.convergence_metric(macrostate))
-        return macrostate
+        # stores the calculated derivatives
+        self.dmeans = np.zeros(self.network.N_particles)
+        self.dvars = np.zeros(self.network.N_particles)
     
-    def numeric_integration_solve(self, macrostate = None, dt = 0.1, N = 100, verbose = False):
+    def numeric_integration_solve(self, dt = 0.1, N = 100, verbose = False):
         """
         Integrates the currents over time to find a steady solution.
 
         Parameters:
-            macrostate  : state to begin with
             dt          : integration step
             N           : number of iterations
-
-        Returns:
-            macrostate
-            conv        : absolute value of the largest current flowing to one of the nanoparticles (should be zero for convergence)
         """
-
-        if macrostate is None:
-            macrostate = np.zeros(self.network.N_particles)
-
-        for i in range(N):
-            macrostate += self.calc_total_currents(macrostate) * dt
-
-        if verbose:
-            print("convergence:", self.convergence_metric(macrostate))
-        return macrostate
+        pass
 
     def convergence_metric(self, macrostate):
+        pass
+
+    def calc_derivatives(self):
         """
-        Calculates to what extend the given state is a fixed state.
-        Returns zero for a perfectly converged state.
-
-        Returns the maximum current flowing to one of the nanoparticles for the given state
-        """
-
-        return np.abs(self.calc_total_currents(macrostate)).max()
-
-
-    def calc_total_currents(self, macrostate):
-        """
-        For a given macrostate of shape (N_particles,), this calculates all the currents flowing to the nanoparticles. This sums over all nearest neighbours and includes electrodes.
-        The current is given in electron charges per ns.
+        Calculates the time derivatives of the means and variances.
         """
 
-        currents = np.sum(self.calc_expected_island_rates(macrostate), axis = 1)
+        # (N, 6, 4, 4, N)
+        effective_states = np.expand_dims(self.means, axis = [0, 1, 2, 3])
+        effective_states = np.repeat(effective_states, self.network.N_particles, axis = 0)
+        effective_states = np.repeat(effective_states, 6, axis = 1)
+        effective_states = np.repeat(effective_states, 4, axis = 2)
+        effective_states = np.repeat(effective_states, 4, axis = 3)
 
-        for i, pos in enumerate(self.network.electrode_pos):
-            particle_index = self.network.get_linear_indices(pos)
-            currents[particle_index] += self.calc_expected_electrode_rates(macrostate, electrode_index = i)
+        # (N, 6, 4, 1)
+        probs_islands = np.expand_dims(self.calc_probability(self.island_indices), axis = -1)
 
-        return currents
-        
+        # (N, 6, 1, 4)
+        probs_neighbours = np.expand_dims(self.calc_probability(self.neighbour_indices) * np.expand_dims(self.neighbour_mask, axis = -1), axis = -2)
 
-    def calc_expected_island_rates(self, macrostate):
+        # (N, 6, 4, 4)
+        probs = probs_islands * probs_neighbours
+
+        # repeated island indices (N, 6, 4, 4)
+        r_island_indices = np.expand_dims(np.expand_dims(self.island_indices, axis = [-1]), axis = -1)
+        r_island_indices = np.repeat(r_island_indices, 4, axis = -1)
+        r_island_indices = np.repeat(r_island_indices, 4, axis = -2)
+
+        # repeated neighbour indices (N, 6, 4, 4)
+        r_neighbour_indices = np.expand_dims(np.expand_dims(self.neighbour_indices, axis = [-1]), axis = -1)
+        r_neighbour_indices = np.repeat(r_neighbour_indices, 4, axis = -1)
+        r_neighbour_indices = np.repeat(r_neighbour_indices, 4, axis = -2)
+
+
+        states = self.effective_operator(np.copy(effective_states), r_island_indices, )
+        states = self.effective_operator(states, self.neighbour_indices, -1)
+
+
+
+        currents = self.antisymmetric_tunnel_rate_island(states, self.neighbour_indices, self.island_indices)
+        n_currents = None # there is work to be done
+        currents_dag = self.symmetric_tunnel_rate_island(states, self.neighbour_indices, self.island_indices)
+
+
+
+
+
+    def effective_operator(self, states, island_indices, effective_states):
         """
-        For the given macrostate the expected currents for all nanoparticles originating from their neighbours are calculated.
-        Thereby, an expectation over all combinations of effective states, where either the neighbours or the target islands
-        lie in ground or ceiling state are concerned.
-        """
-        
-        final_currents = np.zeros((self.network.N_particles, 6))
+        Based on a given assembly of states, occupation numbers of islands at island_indices are replaced by effective states indicated by effective_states.
+        effective states are integers interpreted as the distance from the floor value of the mean.
 
-        # both ground state
-        effective_states, p = self.calc_effective_states(macrostate, True, True)
-        final_currents += self.antisymmetric_tunnel_rate_islands(effective_states, self.neighbour_indices, self.island_indices) * p
-
-        # both ceiling state
-        effective_states, p = self.calc_effective_states(macrostate, False, False)
-        final_currents += self.antisymmetric_tunnel_rate_islands(effective_states, self.neighbour_indices, self.island_indices) * p
-
-
-        # mixed state
-        effective_states, p = self.calc_effective_states(macrostate, True, False)
-        final_currents += self.antisymmetric_tunnel_rate_islands(effective_states, self.neighbour_indices, self.island_indices) * p
-
-        # other mixed state
-        effective_states, p = self.calc_effective_states(macrostate, False, True)
-        final_currents += self.antisymmetric_tunnel_rate_islands(effective_states, self.neighbour_indices, self.island_indices) * p
-
-
-        return final_currents
-    
-    def calc_expected_electrode_rates(self, macrostate, electrode_index):
-        """
-        Calculates the expected current flowing to the nanoparticle connected to electrode at electrode_index.
-        """
-
-        assert len(macrostate.shape) == 1, "only one macrosate accepted"
-        assert macrostate.shape[0] == self.network.N_particles, "wrong number of particles for macrostate"
-        assert electrode_index in range(len(self.network.electrode_pos)), "no valid electrode index"
-
-        particle_index = self.network.get_linear_indices(self.network.electrode_pos[electrode_index])
-
-        # ground state
-        ground_state = self.effective_operator(macrostate, particle_index, np.array(True))
-        p_ground = self.calc_probability(macrostate, particle_index, np.array(True))
-        current_ground = self.antisymmetric_tunnel_rate_electrode(ground_state, electrode_index)
-
-        # ceiling state
-        ceiling_state = self.effective_operator(macrostate, particle_index, np.array(False))
-        p_ceiling = self.calc_probability(macrostate, particle_index, np.array(False))
-        current_ceiling = self.antisymmetric_tunnel_rate_electrode(ceiling_state, electrode_index)
-
-        return current_ground * p_ground + current_ceiling * p_ceiling
-
-    
-    def calc_effective_states(self, macrostate, neighbour_in_ground_state = True, island_in_ground_state = True):
-        """
-        Turns the current macrostate into a grid of effective states, each corresponding to the tunnel event they are associated with. Each row in the (N_particles, 6) grid
-        corresponds to the particle current is flowing to. The 6 possible entries per row describe all 6 possible next neighbours providing current. Currents of nearest neighbours
-        who don't exist are set to zero.
+        Prameters:
+            states              : shape = (..., N_particles)
+            island_indices      : shape = (...)
+            effective_states    : shape = (...)
 
         Returns:
-            (N_particle, 6, N_particle) grid containing all effective states
-            (N_particle, 6) grid containing the probabilities of the effective states to occur 
+            the effective states
         """
 
-        assert len(macrostate.shape) == 1, "only one macrosate accepted"
-        assert macrostate.shape[0] == self.network.N_particles, "wrong number of particles for macrostate"
+        assert island_indices.shape == effective_states.shape, "island indices and effective_states must have the same shape"
+        assert island_indices.shape + (self.network.N_particles,) == states.shape, "no valid states are given"
 
-        assert isinstance(neighbour_in_ground_state, bool), "expected a boolean value"
-        assert isinstance(island_in_ground_state, bool), "expected a boolean value"
+        orig_shape = island_indices.shape
 
-        neighbour_in_ground_state = np.array(neighbour_in_ground_state)
-        island_in_ground_state = np.array(island_in_ground_state)
+        f_states = states.reshape((-1, self.network.N_particles))
+        f_indices = island_indices.reshape((-1,))
+        f_effective_states =  effective_states.reshape((-1,))
+        N = f_states.shape[0]
 
+        print(f_states[np.arange(N, dtype="int"), f_indices])
+        f_states[np.arange(N, dtype="int"), f_indices] = np.floor(f_states[np.arange(N, dtype="int"), f_indices]) + f_effective_states
 
-        # axis = 0  :   listing all nanoparticles
-        # axis = 1  :   listing all nearest_neighbours
-        expanded_state = np.expand_dims(macrostate, axis = [0,1])
-        expanded_state = np.repeat(expanded_state, self.network.N_particles, axis = 0)
-        expanded_state = np.repeat(expanded_state, 6, axis = 1)
-
-
-        # apply effective operator two times:
-
-        # neighbour state and probability
-        effective_states    = self.effective_operator(expanded_state, self.neighbour_indices, neighbour_in_ground_state)
-        p_neighbour = self.calc_probability(expanded_state, self.neighbour_indices, neighbour_in_ground_state)
-
-        # effective island state and probability
-        effective_states    = self.effective_operator(effective_states, self.island_indices, island_in_ground_state)
-        p_island = self.calc_probability(expanded_state, self.island_indices, island_in_ground_state)
-
-
-        effective_states = effective_states * np.expand_dims(self.neighbour_mask, axis = -1)
-        p = p_neighbour * p_island * self.neighbour_mask
-
-        return effective_states, p
-
-
-
-    def effective_operator(self, macrostates, island_indices, groundstate):
+        return f_states.reshape(orig_shape + (self.network.N_particles,))
+    
+    
+    def calc_probability(self, island_indices):
         """
-        Implements the effective operator and thus calculates the effective state.
-
-        For given macrostates with arbitrary leading shape the state at island_indices is modified to either be the floor or the ceiling state.
+        Calculates the four probabilities of an island being in effective states -1,0,1,2 respectively.
 
         Parameters:
-            macrostates     :   numpy array of macrostates
-            island_indices  :   numpy array defining wich island's occupation number to modify
-            groundstate     :   array containing either True to define the ground state or False to define the ceiling state
-
-        Here, all arguments can have an arbitrary shape, except for macrostates, wich in the last dimension carry occupation numbers for each island, thus:
-        shape(macrostates)      =   (..., N_particles)
-        shape(island_indices)   =   (...)
-        shape(groundstate)      =   (...) 
+            island_indices      : indices of islands of which to calculate probabilities; they are calculated for floor(mean) - 1 tp floor(mean) + 2 in order.
 
         Returns:
-            The effective state.
+            probabilities       : shape = (island_indices.shape, 4) hence four probabilities for each island
         """
+        orig_shape = island_indices.shape
+        f_indices = island_indices.flatten()
 
-        assert macrostates.shape[-1] == self.network.N_particles
+        mean = self.means[f_indices]
+        var = self.vars[f_indices]
+        d = mean - np.floor(mean)
 
-        flat_macro = np.copy(macrostates.reshape((-1, self.network.N_particles))) # copy array
-        flat_indices = island_indices.flatten()
-        flat_groundstate = groundstate.flatten()
-        n = flat_indices.shape[0]
+        alpha = 0.5 * (var - d * (1 - d))
+        alpha = np.clip(alpha, 0, 1)
 
-        ground = np.floor(flat_macro[np.arange(n), flat_indices])
-        ceil = np.ceil(flat_macro[np.arange(n), flat_indices])
+        p0 = alpha * (2 - d) / 3        # for floor(mean) - 1
+        p1 = (1 - alpha) * (1 - d)      # for floor(mean)
+        p2 = (1- alpha) * d             # for floor(mean) + 1
+        p3 = alpha * (1 -  (2 - d) / 3) # for floor(mean) + 2
 
-        flat_macro[np.arange(n), flat_indices] = np.where(flat_groundstate, ground, ceil)
 
-        return flat_macro.reshape(macrostates.shape)
-    
-    
-    def calc_probability(self, macrostates, island_indices, groundstate):
-        """
-        Calculates the probability for an effective state to occur.
+        p0 = p0.reshape(orig_shape)
+        p1 = p1.reshape(orig_shape)
+        p2 = p2.reshape(orig_shape)
+        p3 = p3.reshape(orig_shape)
 
-        For given macrostates with arbitrary leading shape, the probability of the by island_indices and groundstate corresponding effective state
-        is calculated. This is just the difference between the floor or ceiling state and the average state at the selected island.
+        return np.stack((p0,p1,p2,p3), axis = -1)
 
-        Parameters:
-            macrostates     :   numpy array of macrostates
-            island_indices  :   numpy array defining wich island's occupation number to account for
-            groundstate     :   array containing either True to define the ground state or False to define the ceiling state
-
-        Here, all arguments can have an arbitrary shape, except for macrostates, wich in the last dimension carry occupation numbers for each island, thus:
-        shape(macrostates)       =   (..., N_particles)
-        shape(island_indices)    =   (...)
-        shape(groundstate)       =   (...) 
-
-        Returns:
-            The probabilties of the effective states occuring.
-        """
-
-        assert macrostates.shape[-1] == self.network.N_particles
-
-        flat_macro = macrostates.reshape((-1, self.network.N_particles)) # copy array
-        flat_indices = island_indices.flatten()
-        flat_groundstate = groundstate.flatten()
-        n = flat_indices.shape[0]
-
-        ground = np.floor(flat_macro[np.arange(n), flat_indices])
-
-        ps = flat_macro[np.arange(n), flat_indices] - ground
-
-        prob = np.where(flat_groundstate, 1 - ps, ps)
-
-        return prob.reshape(island_indices.shape)
     
 
     def antisymmetric_tunnel_rate_islands(self, occupation_numbers, alpha, beta):
@@ -313,6 +181,23 @@ class MeanField:
 
         return self.network.calc_rate_island(occupation_numbers, alpha, beta) - self.network.calc_rate_island(occupation_numbers, beta, alpha)
     
+    def symmetric_tunnel_rate_islands(self, occupation_numbers, alpha, beta):
+        """
+        For given occupation numbers or states, the symmetric tunnel rate involving islands alpha and beta is calculated.
+
+        This can be done in parallel by prepending additional dimensions to
+        occupation_numbers, alpha and beta:
+
+        shape(occupation_numbers)   = (..., N_particles)
+        shape(alpha)                = (...)
+        shape(beta)                 = (...)
+        """
+
+        assert occupation_numbers.shape[-1] == self.network.N_particles, "no valid system state given"
+
+
+        return self.network.calc_rate_island(occupation_numbers, alpha, beta) + self.network.calc_rate_island(occupation_numbers, beta, alpha)
+    
     def antisymmetric_tunnel_rate_electrode(self, occupation_numbers, electrode_index):
         """
         For given occupation numbers or states, this calculates the bidirectional tunnel rate towards the attached nanoparticle at electrode_index.
@@ -327,3 +212,18 @@ class MeanField:
         assert occupation_numbers.shape[-1] == self.network.N_particles, "no valid system state given"
 
         return self.network.calc_rate_from_electrode(occupation_numbers, electrode_index) - self.network.calc_rate_to_electrode(occupation_numbers, electrode_index)
+    
+    def symmetric_tunnel_rate_electrode(self, occupation_numbers, electrode_index):
+        """
+        For given occupation numbers or states, this calculates the symmetric tunnel rate involving the island and electrode at electrode_index
+
+        This can be done in parallel by prepending additional dimensions to
+        occupation_numbers, electrode_index
+
+        shape(occupation_numbers)   = (..., N_particles)
+        shape(electrode_index)      = (...)
+        """
+        
+        assert occupation_numbers.shape[-1] == self.network.N_particles, "no valid system state given"
+
+        return self.network.calc_rate_from_electrode(occupation_numbers, electrode_index) + self.network.calc_rate_to_electrode(occupation_numbers, electrode_index)
