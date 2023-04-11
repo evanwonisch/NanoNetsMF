@@ -31,6 +31,28 @@ class QuickMeanField2:
         # neighbour mask to later remove tunnel rates from non-existing nearest_neighbours
         self.neighbour_mask = np.where(self.neighbour_indices != -1, 1, 0)
 
+        # repeated island indices (N, 6, 4, 4)
+        self.r_island_indices = np.expand_dims(np.expand_dims(self.island_indices, axis = -1), axis = -1)
+        self.r_island_indices = np.repeat(self.r_island_indices, 4, axis = -1)
+        self.r_island_indices = np.repeat(self.r_island_indices, 4, axis = -2)
+
+        # repeated neighbour indices (N, 6, 4, 4)
+        self.r_neighbour_indices = np.expand_dims(np.expand_dims(self.neighbour_indices, axis = -1), axis = -1)
+        self.r_neighbour_indices = np.repeat(self.r_neighbour_indices, 4, axis = -1)
+        self.r_neighbour_indices = np.repeat(self.r_neighbour_indices, 4, axis = -2)
+
+        # repeat microstates for islands (N, 6, 4, 4)
+        self.effective_states_islands = np.repeat(np.expand_dims(np.array([-1,0,1,2]), axis = -1), 4, axis = -1)
+        self.effective_states_islands = np.expand_dims(self.effective_states_islands, axis = [0, 1])
+        self.effective_states_islands = np.repeat(self.effective_states_islands, 6, axis = 1)
+        self.effective_states_islands = np.repeat(self.effective_states_islands, self.network.N_particles, axis = 0)
+
+        # repeat microstates for neighbours (N, 6, 4, 4)
+        self.effective_states_neighbours = np.repeat(np.expand_dims(np.array([-1,0,1,2]), axis = 0), 4, axis = 0)
+        self.effective_states_neighbours = np.expand_dims(self.effective_states_neighbours, axis = [0, 1])
+        self.effective_states_neighbours = np.repeat(self.effective_states_neighbours, 6, axis = 1)
+        self.effective_states_neighbours = np.repeat(self.effective_states_neighbours, self.network.N_particles, axis = 0)
+
         # means
         self.means = np.zeros(self.network.N_particles)
 
@@ -65,6 +87,7 @@ class QuickMeanField2:
         effective_states = np.repeat(effective_states, 6, axis = 1)
         effective_states = np.repeat(effective_states, 4, axis = 2)
         effective_states = np.repeat(effective_states, 4, axis = 3)
+        assert effective_states.shape == (self.network.N_particles, 6, 4, 4, self.network.N_particles)
 
         # (N, 6, 4, 1)
         probs_islands = np.expand_dims(self.calc_probability(self.island_indices), axis = -1)
@@ -75,27 +98,17 @@ class QuickMeanField2:
         # (N, 6, 4, 4)
         probs = probs_islands * probs_neighbours
 
-        # repeated island indices (N, 6, 4, 4)
-        r_island_indices = np.expand_dims(np.expand_dims(self.island_indices, axis = [-1]), axis = -1)
-        r_island_indices = np.repeat(r_island_indices, 4, axis = -1)
-        r_island_indices = np.repeat(r_island_indices, 4, axis = -2)
 
-        # repeated neighbour indices (N, 6, 4, 4)
-        r_neighbour_indices = np.expand_dims(np.expand_dims(self.neighbour_indices, axis = [-1]), axis = -1)
-        r_neighbour_indices = np.repeat(r_neighbour_indices, 4, axis = -1)
-        r_neighbour_indices = np.repeat(r_neighbour_indices, 4, axis = -2)
+        effective_states = self.effective_operator(effective_states, self.r_island_indices, self.effective_states_islands) 
+        effective_states = self.effective_operator(effective_states, self.r_neighbour_indices, self.effective_states_neighbours)
 
+        currents = self.antisymmetric_tunnel_rate_islands(effective_states, self.r_neighbour_indices, self.r_island_indices)
+        currents_dag = self.symmetric_tunnel_rate_islands(effective_states, self.r_neighbour_indices, self.r_island_indices)
 
-        states = self.effective_operator(np.copy(effective_states), r_island_indices, )
-        states = self.effective_operator(states, self.neighbour_indices, -1)
+        exp_currents = np.sum(np.sum(currents * probs, axis = -1), axis = -1)
+        exp_currents_dag = np.sum(np.sum(currents_dag * probs, axis = -1), axis = -1)
 
-
-
-        currents = self.antisymmetric_tunnel_rate_island(states, self.neighbour_indices, self.island_indices)
-        n_currents = None # there is work to be done
-        currents_dag = self.symmetric_tunnel_rate_island(states, self.neighbour_indices, self.island_indices)
-
-
+        return exp_currents
 
 
 

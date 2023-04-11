@@ -1,4 +1,5 @@
 from module.simulation.quick_meanfield2 import QuickMeanField2 as QuickMeanField2
+from module.simulation.meanfield import MeanField as MeanField
 from module.base.network import Network as Network
 import pytest
 import numpy as np
@@ -38,6 +39,59 @@ class TestMeanfield:
                         [0,  1,  1, 0, 0, 0],
                         [ 1, 0,  1, 0, 0, 0]])
         assert np.allclose(mf.neighbour_mask, mask), "error in neighbour mask"
+
+        # repeated island indices
+        assert mf.r_island_indices.shape == (4, 6, 4, 4)
+        assert np.all(mf.r_island_indices[0, :, :, :] == 0)
+        assert np.all(mf.r_island_indices[1, :, :, :] == 1)
+        assert np.all(mf.r_island_indices[2, :, :, :] == 2)
+        assert np.all(mf.r_island_indices[3, :, :, :] == 3)
+
+        # repeated neighbour indices
+        assert mf.r_neighbour_indices.shape == (4, 6, 4, 4)
+        assert np.all(mf.r_neighbour_indices[0, 1, :, :] == 1)
+        assert np.all(mf.r_neighbour_indices[0, 3, :, :] == 2)
+        assert np.all(mf.r_neighbour_indices[2, 1, :, :] == 3)
+
+        # repeated microstates for island
+        assert mf.effective_states_islands.shape == (4, 6, 4, 4)
+        assert np.all(mf.effective_states_islands[:,:,0,:] == -1)
+        assert np.all(mf.effective_states_islands[:,:,1,:] == 0)
+        assert np.all(mf.effective_states_islands[:,:,2,:] == 1)
+        assert np.all(mf.effective_states_islands[:,:,3,:] == 2)
+
+        # repeated microstates for neighbours
+        assert mf.effective_states_neighbours.shape == (4, 6, 4, 4)
+        assert np.all(mf.effective_states_neighbours[:,:,:,0] == -1)
+        assert np.all(mf.effective_states_neighbours[:,:,:,1] == 0)
+        assert np.all(mf.effective_states_neighbours[:,:,:,2] == 1)
+        assert np.all(mf.effective_states_neighbours[:,:,:,3] == 2)
+
+    def test_calc_derivatives(self):
+        net = Network(2,2,1,[[0,0,0]])
+        mf_0 = MeanField(net)
+        mf = QuickMeanField2(net)
+
+        # test shape 
+        assert mf.calc_derivatives().shape == (net.N_particles, 6), "wrong shape"
+
+        # test that no currents come from not-existing neighbours
+        assert mf.calc_derivatives()[0,0] == 0
+        assert mf.calc_derivatives()[0,2] == 0
+        assert mf.calc_derivatives()[0,4] == 0
+        assert mf.calc_derivatives()[0,5] == 0
+
+        assert mf.calc_derivatives()[1,1] == 0
+        assert mf.calc_derivatives()[1,2] == 0
+        assert mf.calc_derivatives()[1,4] == 0
+        assert mf.calc_derivatives()[1,5] == 0
+
+        # for var = 0: reverts back to normal lawrence dist
+        mf.vars = np.zeros(4)
+        mf.means = np.array([0,1,2.3,4])
+        assert np.allclose(mf_0.calc_expected_island_rates(mf.means), mf.calc_derivatives()), "quick_meanfield2 and meanfield do not converge into the same for var = 0"
+
+
 
 
     def test_effective_operator(self):
