@@ -1,5 +1,6 @@
 from module.simulation.quick_meanfield2 import QuickMeanField2 as QuickMeanField2
 from module.simulation.meanfield import MeanField as MeanField
+from module.simulation.set_meanfield2 import SetMeanField2
 from module.base.network import Network as Network
 import pytest
 import numpy as np
@@ -68,30 +69,32 @@ class TestMeanfield:
         assert np.all(mf.effective_states_neighbours[:,:,:,3] == 2)
 
     def test_calc_derivatives(self):
-        net = Network(2,2,1,[[0,0,0]])
+        net = Network(2,2,1,[[0,0,0],[0,0,0]])
         mf_0 = MeanField(net)
         mf = QuickMeanField2(net)
 
+        currents, currents_dag, n_currents =  mf.calc_expectation_islands()
+
         # test shape 
-        assert mf.calc_derivatives().shape == (net.N_particles, 6), "wrong shape"
+        assert currents.shape == (net.N_particles, 6), "wrong shape"
 
         # test that no currents come from not-existing neighbours
-        assert mf.calc_derivatives()[0,0] == 0
-        assert mf.calc_derivatives()[0,2] == 0
-        assert mf.calc_derivatives()[0,4] == 0
-        assert mf.calc_derivatives()[0,5] == 0
+        assert currents[0,0] == 0
+        assert currents[0,2] == 0
+        assert currents[0,4] == 0
+        assert currents[0,5] == 0
 
-        assert mf.calc_derivatives()[1,1] == 0
-        assert mf.calc_derivatives()[1,2] == 0
-        assert mf.calc_derivatives()[1,4] == 0
-        assert mf.calc_derivatives()[1,5] == 0
+        assert currents[1,1] == 0
+        assert currents[1,2] == 0
+        assert currents[1,4] == 0
+        assert currents[1,5] == 0
 
         # for var = 0: reverts back to normal lawrence dist
+        net.set_voltage_config([-0.01,0.03],0.04)
         mf.vars = np.zeros(4)
         mf.means = np.array([0,1,2.3,4])
-        assert np.allclose(mf_0.calc_expected_island_rates(mf.means), mf.calc_derivatives()), "quick_meanfield2 and meanfield do not converge into the same for var = 0"
-
-
+        assert np.allclose(mf_0.calc_expected_island_rates(mf.means), mf.calc_expectation_islands()[0]), "quick_meanfield2 and meanfield do not converge into the same for var = 0"
+        assert np.allclose(mf_0.calc_total_currents(mf.means), mf.calc_derivatives()[0]), "quick_meanfield2 and meanfield do not converge concerning the total currents"
 
 
     def test_effective_operator(self):
@@ -108,7 +111,7 @@ class TestMeanfield:
 
                                         [[ 9.14831688, 19.33463189, 21.3374962,  12.9502747 ],
                                         [17.87378285, 14.48118671,  6.5975802,  15.22911196]]])
-        res = mf.effective_operator(states, island_index, effective_states)
+        res, occ_num = mf.effective_operator(states, island_index, effective_states)
 
         sol = np.array([[[16, 18.49276232, 23.45403068, 11.1422785 ],
                                         [10.16361653, 29,   5.33504647, 25.85101559]],
@@ -116,7 +119,10 @@ class TestMeanfield:
                                         [[ 9.14831688, 19.33463189, 23,  12.9502747 ],
                                         [17.87378285, 14.48118671,  6.5975802,  14]]])
         
+        sol_occ_num = np.array([[16, 29],[23, 14]])
+        
         assert np.allclose(res, sol), "effective operator fails"
+        assert np.allclose(occ_num, sol_occ_num), "effective operator fails in calculating occupation numbers"
 
     def test_calc_probability(self):
         """

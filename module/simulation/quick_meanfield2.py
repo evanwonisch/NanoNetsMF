@@ -1,6 +1,7 @@
 import numpy as np
 
 from module.base.network import Network
+import module.components.CONST as CONST
 
 class QuickMeanField2:
     """
@@ -58,12 +59,8 @@ class QuickMeanField2:
 
         # variances
         self.vars = np.ones(self.network.N_particles)
-
-        # stores the calculated derivatives
-        self.dmeans = np.zeros(self.network.N_particles)
-        self.dvars = np.zeros(self.network.N_particles)
     
-    def numeric_integration_solve(self, dt = 0.1, N = 100, verbose = False):
+    def solve(self, dt = 0.05, N = 100, verbose = False, reset = False):
         """
         Integrates the currents over time to find a steady solution.
 
@@ -71,14 +68,75 @@ class QuickMeanField2:
             dt          : integration step
             N           : number of iterations
         """
-        pass
 
-    def convergence_metric(self, macrostate):
-        pass
+        if reset:
+            self.means = np.zeros(self.network.N_particles)
+            self.vars = np.ones(self.network.N_particles)
+
+        for i in range(N):
+            dmeans, dvars = self.calc_derivatives()
+            self.means += dt * dmeans
+            self.vars += dt * dvars
+
+            d = self.means - np.floor(self.means) # digits
+            self.vars = np.clip(self.vars, d * (1 - d), (2 - d) * (1 + d))
+
+        if verbose:
+            print("convergence:", self.convergence_metric())
+
+    def convergence_metric(self):
+        """
+        Calculates a 2D convergence metric. The first component is the maximum of the time derivative of the mean.
+        The second one the respective maximum vor the variances.
+        """
+        dmeans, dvars = self.calc_derivatives()
+
+        d = self.means - np.floor(self.means) # digits
+
+        cond1 = np.logical_and(self.vars <= d*(1-d), np.sign(dvars) < 0)
+        cond2 = np.logical_and(self.vars >= (2-d)*(1+d), np.sign(dvars) > 0)
+        cond = np.logical_or(cond1, cond2)
+        dvars = np.where(cond, 0, dvars)
+        
+        return (np.abs(dmeans).max(), np.abs(dvars).max())
 
     def calc_derivatives(self):
         """
-        Calculates the time derivatives of the means and variances.
+        Calculates the time derivatives of the mean and the variances
+
+        Returns:
+            dmeans
+            dvars
+        """
+
+        dmeans = np.zeros(self.network.N_particles)
+        dvars = np.zeros(self.network.N_particles)
+
+        #islands
+        currents_island, currents_dag_island, n_currents_island = self.calc_expectation_islands()
+        dmeans += np.sum(currents_island, axis = -1)
+        dvars += np.sum(2 * n_currents_island + currents_dag_island, axis = -1)
+
+        #electrodes
+        for electrode_index in range(len(self.network.electrode_pos)):
+            island_index = self.network.get_linear_indices(self.network.electrode_pos[electrode_index])
+            current, current_dag, n_current = self.calc_expectation_electrodes(electrode_index)
+            dmeans[island_index] += current
+            dvars[island_index] += 2 * n_current + current_dag
+
+
+        dvars -= 2 * self.means * dmeans
+
+        return dmeans, dvars
+
+    def calc_expectation_islands(self):
+        """
+        Calculates the expectation values needed for dynamics concerning only other islands. The calculation is broadcasted to all islands and neighbours at once.
+
+        Returns:
+            exp_currents        : the currents flowing towards islands in axis 0 by neighbours in axis 1
+            exp_currents_dag    : the currents with opposite internal sign
+            exp_n_currents      : the expectation of the current from island i to j times the occupation number of i
         """
 
         # (N, 6, 4, 4, N)
@@ -99,18 +157,51 @@ class QuickMeanField2:
         probs = probs_islands * probs_neighbours
 
 
-        effective_states = self.effective_operator(effective_states, self.r_island_indices, self.effective_states_islands) 
-        effective_states = self.effective_operator(effective_states, self.r_neighbour_indices, self.effective_states_neighbours)
+        effective_states, occ_island = self.effective_operator(effective_states, self.r_island_indices, self.effective_states_islands) 
+        effective_states, occ_neighbour = self.effective_operator(effective_states, self.r_neighbour_indices, self.effective_states_neighbours)
 
         currents = self.antisymmetric_tunnel_rate_islands(effective_states, self.r_neighbour_indices, self.r_island_indices)
         currents_dag = self.symmetric_tunnel_rate_islands(effective_states, self.r_neighbour_indices, self.r_island_indices)
+        n_currents = currents * occ_island
 
         exp_currents = np.sum(np.sum(currents * probs, axis = -1), axis = -1)
         exp_currents_dag = np.sum(np.sum(currents_dag * probs, axis = -1), axis = -1)
+        exp_n_currents = np.sum(np.sum(n_currents * probs, axis = -1), axis = -1)
 
-        return exp_currents
+        return exp_currents, exp_currents_dag, exp_n_currents
+    
+    def calc_expected_electrode_current(self, electrode_index):
+        """
+        Calculates the current flowing from an electrode into the system.
+        """
+        return self.calc_expectation_electrodes(electrode_index)[0] * CONST.electron_charge
 
+    def calc_expectation_electrodes(self, electrode_index):
+        """
+        Calculates the expectation values of the current, the dagger-current and the n-current for an electrode and its attached particle.
 
+        Returns:
+            current
+            current_dag
+            n_current
+        """
+        island_index = self.network.get_linear_indices(self.network.electrode_pos[electrode_index])
+
+        states = np.expand_dims(self.means, axis = 0)
+        states = np.repeat(states, 4, axis = 0)
+
+        effective_states, occ_num = self.effective_operator(states, np.repeat(island_index, 4), np.array([-1,0,1,2]))
+        probs = self.calc_probability(np.array(island_index))
+
+        current = self.antisymmetric_tunnel_rate_electrode(effective_states, electrode_index)
+        current_dag = self.symmetric_tunnel_rate_electrode(effective_states, electrode_index)
+        n_current = current * occ_num
+
+        exp_current = np.sum(current * probs)
+        exp_current_dag = np.sum(current_dag * probs)
+        exp_n_current = np.sum(n_current * probs)
+
+        return exp_current, exp_current_dag, exp_n_current
 
     def effective_operator(self, states, island_indices, effective_states):
         """
@@ -124,6 +215,7 @@ class QuickMeanField2:
 
         Returns:
             the effective states
+            the occupation numbers of the concerned islands put into their effective state
         """
 
         assert island_indices.shape == effective_states.shape, "island indices and effective_states must have the same shape"
@@ -136,10 +228,10 @@ class QuickMeanField2:
         f_effective_states =  effective_states.reshape((-1,))
         N = f_states.shape[0]
 
-        print(f_states[np.arange(N, dtype="int"), f_indices])
-        f_states[np.arange(N, dtype="int"), f_indices] = np.floor(f_states[np.arange(N, dtype="int"), f_indices]) + f_effective_states
+        occupation_numbers = np.floor(f_states[np.arange(N, dtype="int"), f_indices]) + f_effective_states
+        f_states[np.arange(N, dtype="int"), f_indices] = occupation_numbers
 
-        return f_states.reshape(orig_shape + (self.network.N_particles,))
+        return f_states.reshape(orig_shape + (self.network.N_particles,)), occupation_numbers.reshape(orig_shape)
     
     
     def calc_probability(self, island_indices):
