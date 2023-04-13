@@ -2,6 +2,7 @@ import numpy as np
 
 from module.base.network import Network
 import module.components.CONST as CONST
+from module.components.Adam import Adam
 
 class QuickMeanField2:
     """
@@ -58,9 +59,12 @@ class QuickMeanField2:
         self.means = np.zeros(self.network.N_particles)
 
         # variances
-        self.vars = np.ones(self.network.N_particles)
+        self.vars = np.zeros(self.network.N_particles)
+
+        # Adam optimizer
+        self.opt = None
     
-    def solve(self, dt = 0.05, N = 100, verbose = False, reset = False):
+    def numeric_integration_solve(self, dt = 0.05, N = 100, verbose = False, reset = True):
         """
         Integrates the currents over time to find a steady solution.
 
@@ -78,11 +82,38 @@ class QuickMeanField2:
             self.means += dt * dmeans
             self.vars += dt * dvars
 
-            d = self.means - np.floor(self.means) # digits
-            self.vars = np.clip(self.vars, d * (1 - d), (2 - d) * (1 + d))
+            self.clip_vars()
 
         if verbose:
             print("convergence:", self.convergence_metric())
+
+    def ADAM_solve(self, N = 60, learning_rate = 0.1, reset = True, verbose = False):
+        """
+        Perfroms 60 ADAM steps on derivatives.
+        """
+        if reset:
+            self.means = np.zeros(self.network.N_particles)
+            self.vars = np.zeros(self.network.N_particles)
+            self.opt = Adam([self.means, self.vars])
+
+        for i in range(N):
+            dmean, dvar = self.opt.calc_step(self.calc_derivatives(), learning_rate)
+            self.means += dmean
+            self.vars += dvar
+            self.clip_vars()
+
+        if verbose:
+            print("ADAM convergence:", self.ADAM_convergence_metric())
+
+    def ADAM_convergence_metric(self):
+        """
+        Calculates the mean absolute value of the momentum terms stored in ADAM algortihmn for the means and variances.
+        """
+
+        if self.opt is None:
+            raise Exception("ADAM optimizier was not yet initialised. Call ADAM_solve().")
+        
+        return (np.max(np.abs(self.opt.V[0])), np.max(np.abs(self.opt.V[1])))
 
     def convergence_metric(self):
         """
@@ -90,15 +121,15 @@ class QuickMeanField2:
         The second one the respective maximum vor the variances.
         """
         dmeans, dvars = self.calc_derivatives()
-
-        d = self.means - np.floor(self.means) # digits
-
-        cond1 = np.logical_and(self.vars <= d*(1-d), np.sign(dvars) < 0)
-        cond2 = np.logical_and(self.vars >= (2-d)*(1+d), np.sign(dvars) > 0)
-        cond = np.logical_or(cond1, cond2)
-        dvars = np.where(cond, 0, dvars)
         
         return (np.abs(dmeans).max(), np.abs(dvars).max())
+    
+    def clip_vars(self):
+        """
+        Clips variances back to senseful intervall for current means.
+        """
+        d = self.means - np.floor(self.means) # digits
+        self.vars = np.clip(self.vars, d * (1 - d), (2 - d) * (1 + d))
 
     def calc_derivatives(self):
         """
@@ -126,6 +157,13 @@ class QuickMeanField2:
 
 
         dvars -= 2 * self.means * dmeans
+
+        # if variances tend outside of valid interval, set derivative to zero
+        d = self.means - np.floor(self.means) # digits
+        cond1 = np.logical_and(self.vars <= d*(1-d) + 1e-3, np.sign(dvars) < 0)
+        cond2 = np.logical_and(self.vars >= (2-d)*(1+d) - 1e-3, np.sign(dvars) > 0)
+        cond = np.logical_or(cond1, cond2)
+        dvars = np.where(cond, 0, dvars)
 
         return dmeans, dvars
 
