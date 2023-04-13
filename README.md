@@ -24,7 +24,9 @@ I have implemented my own solution to the master equation and LMF and KMC lie in
 
 4. The 2nd order method is a great improvement for set
 
-5. A general 2nd order mean-field without covariance is implemented and converges to similar values than first order, which is a good sign.
+5. A general 2nd order mean-field without covariance is implemented and converges to similar values than first order, which is a good sign. (edit: also covariances have been implemented)
+
+6. A quick method expanding lwarence dist by just two values is implemented and achieves great results. In contrast to method 5, this can be done in reasonable time
 
 
 
@@ -37,4 +39,6 @@ I have implemented my own solution to the master equation and LMF and KMC lie in
 
 1. LMF produces very accurate means wich deviate just abt. 0.1 electron charges per island. Still, the output currents are not living up to that. We might find a solution by a better MF-distribution approximation.
 
-2. It seems that the output-currents from MF deviate systematically from the KMC data. This might hint to another problem. An empirical factor of 1 + e (electron charge) drastically imporves the accuracy for large systems.
+2. It seems that the output-currents from MF deviate systematically from the KMC data. This might hint to another problem. An empirical factor of 1 + e (electron charge) drastically imporves the accuracy for large systems.(edit: apparently its not a problem)
+
+3. The Quick MF2 method converges to very good output currents thanks to ADAM optimization

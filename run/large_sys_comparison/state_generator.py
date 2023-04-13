@@ -30,14 +30,10 @@ for i in range(4, len(net_sizes)): # net sizes
         voltages = voltage_configs[j]
         nets[i].set_voltage_config([voltages[0], voltages[1], voltages[2], voltages[3]], voltages[4])
 
-        mf = MeanField(nets[i])
-        mfs[i].means = mf.numeric_integration_solve(N = 200)
-        mfs[i].vars = np.ones(nets[i].N_particles)
+        mfs[i].ADAM_solve(N = 100, learning_rate = 0.1, reset=True)
+        mfs[i].ADAM_solve(N = 100, learning_rate = 0.005, reset=False, verbose = True)
 
-        for epoch in range(10):
-            mfs[i].solve(N = 50, dt = 0.01, verbose = True)
-
-        conv_mean, conv_var = mfs[i].convergence_metric()
+        conv_mean, conv_var = mfs[i].ADAM_convergence_metric()
 
         means_array[j] = mfs[i].means
         vars_array[j] = mfs[i].vars
