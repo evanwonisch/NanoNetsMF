@@ -17,7 +17,7 @@ class Adam:
         self.N_props = len(props)
 
         self.V = [np.zeros(prop.shape) for prop in props] # momentum
-        self.S = [np.zeros(prop.shape) for prop in props] # RMSProp
+        self.S = [np.ones(prop.shape) for prop in props] # RMSProp
 
         self.steps = [np.zeros(prop.shape) for prop in props]
 

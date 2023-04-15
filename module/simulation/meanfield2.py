@@ -3,6 +3,7 @@ from module.base.network import Network
 from module.components.discrete_gaussian1D import DiscreteGaussian1D
 from module.components.discrete_gaussian2D import DiscreteGaussian2D
 import module.components.CONST as CONST
+from module.components.Adam import Adam
 
 class MeanField2:
     """
@@ -36,6 +37,9 @@ class MeanField2:
         # covariances
         self.covs = np.zeros((self.net.N_particles, 6))
         self.dcovs = np.zeros((self.net.N_particles, 6))
+
+        # Adam optimizer
+        self.opt = None
 
     def get_cov(self, i, j):
         """
@@ -360,6 +364,44 @@ class MeanField2:
         i = self.island_indices[electrode_index]
         probs = self.g1.calc_prob(self.means[i], self.vars[i])
         return -np.sum(probs * (self.calc_R_from_electrode(electrode_index) - self.calc_R_to_electrode(electrode_index))) * CONST.electron_charge
+    
+
+    def ADAM_solve(self, N = 60, dt = 0.1, reset = True, verbose = False):
+        """
+        Integrates the differential equation using Adam optimizer.
+        """
+        if reset:
+            self.means = np.zeros(self.net.N_particles)
+            self.vars = np.ones(self.net.N_particles) * 0.3
+            self.covs = np.zeros((self.net.N_particles, 6))
+            self.opt = Adam([self.means, self.vars, self.covs])
+
+        for i in range(N):
+            self.calc_deltas()
+            d_mean, d_var, d_cov = self.opt.calc_step([self.dmeans, self.dvars, self.dcovs], learning_rate = dt)
+
+            self.means += d_mean
+            self.vars += d_var
+            self.covs += d_cov
+
+            # clip variances
+            decimals = self.means - np.floor(self.means)
+            self.vars = np.where(self.vars < decimals * (1 - decimals), decimals * (1 - decimals), self.vars)
+
+        if verbose:
+            print("Adam convergence:", self.ADAM_convergence_metric())
+
+    def ADAM_convergence_metric(self):
+        """
+        Calculates the mean absolute value of the momentum terms stored in ADAM algortihmn for the means, variances and covariances.
+        """
+
+        if self.opt is None:
+            raise Exception("ADAM optimizier was not yet initialised. Call ADAM_solve().")
+        
+        return (np.max(np.abs(self.opt.V[0])), np.max(np.abs(self.opt.V[1])), np.max(np.abs(self.opt.V[2])))
+
+        
 
     def solve(self, dt = 0.05, N = 60, verbose = False, reset = False):
         """
@@ -369,7 +411,7 @@ class MeanField2:
             dt      : integration step
             N       : number of iterations
             verbose : whether to print convergence at the end
-            rest    : whether to reset all moments before at the beginning, for example after change of voltages.
+            reset    : whether to reset all moments before at the beginning, for example after change of voltages.
         """
         if reset:
             self.means = np.zeros(self.net.N_particles)
