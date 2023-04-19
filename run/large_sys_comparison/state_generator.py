@@ -15,12 +15,15 @@ mfs = [QuickMeanField2(net) for net in nets]
 voltage_configs = np.loadtxt("data/large_sys/voltage_configs.csv")
 
 
-for i in range(6, 7): # net sizes
+for i in range(4, 5): # net sizes
 
     print("doing size", net_sizes[i])
 
-    means_array = np.zeros((100, nets[i].N_particles))
-    vars_array = np.zeros((100, nets[i].N_particles))
+    # means_array = np.zeros((100, nets[i].N_particles))
+    # vars_array = np.zeros((100, nets[i].N_particles))
+    means_array = np.loadtxt("data/large_sys/mf2/entropy_means"+str(net_sizes[i])+"x"+str(net_sizes[i])+".csv")
+    vars_array = np.loadtxt("data/large_sys/mf2/entropy_vars"+str(net_sizes[i])+"x"+str(net_sizes[i])+".csv")
+
     conv_means_array = np.zeros(100)
     conv_vars_array = np.zeros(100)
     current_array = np.zeros(100)
@@ -30,10 +33,14 @@ for i in range(6, 7): # net sizes
         voltages = voltage_configs[j]
         nets[i].set_voltage_config([voltages[0], voltages[1], voltages[2], voltages[3]], voltages[4])
 
-        mfs[i].ADAM_solve(N = 140, learning_rate = 0.1, reset=True)
-        mfs[i].ADAM_solve(N = 140, learning_rate = 0.005, reset=False, verbose = True)
+        # mfs[i].ADAM_solve(N = 180, learning_rate = 0.1, reset=True)
+        # mfs[i].ADAM_solve(N = 50, learning_rate = 0.005, reset=False, verbose = True)
 
-        conv_mean, conv_var = mfs[i].ADAM_convergence_metric()
+        mfs[i].means = means_array[j]
+        mfs[i].vars = vars_array[j]
+        mfs[i].numeric_integration_solve(N = 120, dt = 0.05, reset = False, verbose = True)
+
+        conv_mean, conv_var = mfs[i].convergence_metric()
 
         means_array[j] = mfs[i].means
         vars_array[j] = mfs[i].vars
@@ -43,8 +50,8 @@ for i in range(6, 7): # net sizes
 
 
     print("done size:", net_sizes[i])
-    np.savetxt("data/large_sys/mf2/means"+str(net_sizes[i])+"x"+str(net_sizes[i])+".csv", means_array)
-    np.savetxt("data/large_sys/mf2/vars"+str(net_sizes[i])+"x"+str(net_sizes[i])+".csv", vars_array)
-    np.savetxt("data/large_sys/mf2/conv_means"+str(net_sizes[i])+"x"+str(net_sizes[i])+".csv", conv_means_array)
-    np.savetxt("data/large_sys/mf2/conv_vars"+str(net_sizes[i])+"x"+str(net_sizes[i])+".csv", conv_vars_array)
-    np.savetxt("data/large_sys/mf2/currents"+str(net_sizes[i])+"x"+str(net_sizes[i])+".csv", current_array)
+    np.savetxt("data/large_sys/mf2/entropy_means"+str(net_sizes[i])+"x"+str(net_sizes[i])+".csv", means_array)
+    np.savetxt("data/large_sys/mf2/entropy_vars"+str(net_sizes[i])+"x"+str(net_sizes[i])+".csv", vars_array)
+    np.savetxt("data/large_sys/mf2/entropy_conv_means"+str(net_sizes[i])+"x"+str(net_sizes[i])+".csv", conv_means_array)
+    np.savetxt("data/large_sys/mf2/entropy_conv_vars"+str(net_sizes[i])+"x"+str(net_sizes[i])+".csv", conv_vars_array)
+    np.savetxt("data/large_sys/mf2/entropy_currents"+str(net_sizes[i])+"x"+str(net_sizes[i])+".csv", current_array)

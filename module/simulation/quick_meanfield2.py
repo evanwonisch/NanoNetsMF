@@ -289,13 +289,25 @@ class QuickMeanField2:
         var = self.vars[f_indices]
         d = mean - np.floor(mean)
 
-        alpha = 0.5 * (var - d * (1 - d))
-        alpha = np.clip(alpha, 0, 1)
+        var = np.clip(var, d * (1 - d), (2 - d) * (1 + d) - 0.2)
+        alpha = -(d + 1) ** 2 + 5 * (d + 1) - 6 - var
+        beta = 2 - d
+        p0_opt = 1/40 * (2 - 10 * alpha - 8 * beta)
+        a = 0.5 * (var - d * (1 - d))
 
-        p0 = alpha * (2 - d) / 3        # for floor(mean) - 1
-        p1 = (1 - alpha) * (1 - d)      # for floor(mean)
-        p2 = (1- alpha) * d             # for floor(mean) + 1
-        p3 = alpha * (1 -  (2 - d) / 3) # for floor(mean) + 2
+        p0 = np.clip(p0_opt, 0, a * (2-d)/3)
+        p1 = -0.5 * (alpha + 6 * p0)
+        p2 = alpha + beta + 3*p0
+        p3 = 1 - p0 - p1 - p2
+
+        # expanded Lawrence distribution
+        # alpha = 0.5 * (var - d * (1 - d))
+        # alpha = np.clip(alpha, 0, 1)
+
+        # p0 = alpha * (2 - d) / 3        # for floor(mean) - 1
+        # p1 = (1 - alpha) * (1 - d)      # for floor(mean)
+        # p2 = (1- alpha) * d             # for floor(mean) + 1
+        # p3 = alpha * (1 -  (2 - d) / 3) # for floor(mean) + 2
 
 
         p0 = p0.reshape(orig_shape)
