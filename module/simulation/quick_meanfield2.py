@@ -100,10 +100,35 @@ class QuickMeanField2:
             dmean, dvar = self.opt.calc_step(self.calc_derivatives(), learning_rate)
             self.means += dmean
             self.vars += dvar
+            
             self.clip_vars()
 
         if verbose:
             print("ADAM convergence:", self.ADAM_convergence_metric())
+
+    def numeric_stupi_solve(self, dt = 0.05, N = 100, verbose = False, reset = True):
+        """
+        Iterates the mean and variances by taking the sign of their derivatives and goes
+        a step of fixed size towards that direction.
+
+        Parameters:
+            dt          : integration step
+            N           : number of iterations
+        """
+
+        if reset:
+            self.means = np.zeros(self.network.N_particles)
+            self.vars = np.ones(self.network.N_particles)
+
+        for i in range(N):
+            dmeans, dvars = self.calc_derivatives()
+            self.means += dt * np.sign(dmeans)
+            self.vars += dt * np.sign(dvars)
+
+            self.clip_vars()
+
+        if verbose:
+            print("convergence:", self.convergence_metric())
 
     def ADAM_convergence_metric(self):
         """
@@ -158,12 +183,12 @@ class QuickMeanField2:
 
         dvars -= 2 * self.means * dmeans
 
-        # if variances tend outside of valid interval, set derivative to zero
-        d = self.means - np.floor(self.means) # digits
-        cond1 = np.logical_and(self.vars <= d*(1-d) + 1e-3, np.sign(dvars) < 0)
-        cond2 = np.logical_and(self.vars >= (2-d)*(1+d) - 1e-3, np.sign(dvars) > 0)
-        cond = np.logical_or(cond1, cond2)
-        dvars = np.where(cond, 0, dvars)
+        # # if variances tend outside of valid interval, set derivative to zero
+        # d = self.means - np.floor(self.means) # digits
+        # cond1 = np.logical_and(self.vars <= d*(1-d) + 1e-3, np.sign(dvars) < 0)
+        # cond2 = np.logical_and(self.vars >= (2-d)*(1+d) - 1e-3, np.sign(dvars) > 0)
+        # cond = np.logical_or(cond1, cond2)
+        # dvars = np.where(cond, 0, dvars)
 
         return dmeans, dvars
 

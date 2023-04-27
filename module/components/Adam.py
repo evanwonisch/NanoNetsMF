@@ -30,11 +30,14 @@ class Adam:
             grap_props  : list of numpy arrays
         """
 
+        if not isinstance(learning_rate, list):
+            learning_rate = np.ones(self.N_props) * learning_rate
+
         for i in range(self.N_props):
             self.V[i] = self.beta1 * self.V[i] + (1 - self.beta1) * grad_props[i]
             self.S[i] = self.beta2 * self.S[i] + (1 - self.beta2) * grad_props[i] ** 2
 
-            self.steps[i] = learning_rate * self.V[i] / (np.sqrt(self.S[i]) + self.eps)
+            self.steps[i] = learning_rate[i] * self.V[i] / (np.sqrt(self.S[i]) + self.eps)
 
 
         return self.steps

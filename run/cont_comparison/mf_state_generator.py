@@ -15,6 +15,6 @@ for i in range(200):
     net.set_voltage_config(voltage_configs[i], 0)
     mf = MeanField(net)
 
-    mf_means[i] = mf.numeric_integration_solve(mf_means[i], verbose = True, N = 500, dt = 0.005)
+    mf_means[i] = mf.numeric_integration_solve(mf_means[i], verbose = True, N = 60, dt = 0.01)
 
     np.savetxt("data/cont_comparison/mf/mf_means.csv", mf_means)
