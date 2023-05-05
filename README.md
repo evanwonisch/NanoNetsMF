@@ -42,3 +42,27 @@ I have implemented my own solution to the master equation and LMF and KMC lie in
 2. It seems that the output-currents from MF deviate systematically from the KMC data. This might hint to another problem. An empirical factor of 1 + e (electron charge) drastically imporves the accuracy for large systems.(edit: apparently its not a problem)
 
 3. The Quick MF2 method converges to very good output currents thanks to ADAM optimization
+
+
+
+## TODO:
+
+- show differences between p^2-4 dist and gauss-4 dist in 1D
+
+- show distribution differences:
+    - Master Equation
+    - first order
+    - Full Gauss
+    - p^2-4 dist
+
+- show distribution differences: 3x3
+    - KMC
+    - first order
+    - Full Gauss cov != 0
+    - Full Gauss cov = 0
+    - p^2-4 dist
+
+
+- time dependent systems
+    - input of sine voltages
+    - fourier transform and nonlinearities

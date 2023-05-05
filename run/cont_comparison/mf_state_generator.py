@@ -9,12 +9,12 @@ net = Network(4, 4, 1, [[0,0,0],[3,0,0],[0,3,0],[3,3,0]])
 
 mf_means = np.loadtxt("data/cont_comparison/mf/mf_means.csv")
 
-for i in range(200):
+for i in range(125, 150):
     print(i/200 * 100, "%")
 
     net.set_voltage_config(voltage_configs[i], 0)
     mf = MeanField(net)
 
-    mf_means[i] = mf.numeric_integration_solve(mf_means[i], verbose = True, N = 60, dt = 0.01)
+    mf_means[i] = mf.numeric_integration_solve(mf_means[i], verbose = True, N = 120, dt = 0.01)
 
     np.savetxt("data/cont_comparison/mf/mf_means.csv", mf_means)
