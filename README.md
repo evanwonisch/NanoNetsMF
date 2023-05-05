@@ -62,6 +62,7 @@ I have implemented my own solution to the master equation and LMF and KMC lie in
     - Full Gauss cov = 0
     - p^2-4 dist
 
+- calc high precis currents
 
 - time dependent systems
     - input of sine voltages
