@@ -4,7 +4,7 @@ class Adam:
     """
     Implements the adaptive moment estimation strategy for better convergence
     """
-    def __init__(self, props, beta1 = 0.9, beta2 = 0.999, eps = 1e-8):
+    def __init__(self, props, beta1 = 0.5, beta2 = 0.999, eps = 1e-8):
         """
         Parameters:
             props       : list of numpy arrays to perform gradient steps on

@@ -17,7 +17,7 @@ mf_convs_mean = np.loadtxt("data/cont_comparison/mf2/entropy_mf2_conv_means.csv"
 mf_convs_var = np.loadtxt("data/cont_comparison/mf2/entropy_mf2_conv_vars.csv")
 
 
-for i in range(150, 200):
+for i in range(75, 112):
     print(i)
 
     net.set_voltage_config(voltage_configs[i], 0)
