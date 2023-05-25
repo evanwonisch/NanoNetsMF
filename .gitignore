@@ -4,3 +4,8 @@ __pycache__
 data
 *.prof
 .ipynb_checkpoints
+run/runtime/best
+run/runtime/kmc
+run/runtime/mf_adam2
+run/runtime/mf_simple2
+run/runtime/mf2
