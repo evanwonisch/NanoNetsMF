@@ -29,11 +29,9 @@ I have implemented my own solution to the master equation and LMF and KMC lie in
 6. A quick method expanding lwarence dist by just two values is implemented and achieves great results. In contrast to method 5, this can be done in reasonable time
 
 
-
 ## Implementation of Master Equation
 
 1. It is seen, that the correct distribution can have a big variance, which must be accounted for in MF.
-
 
 ## Comparison of KMC and LMF for larger systems
 
@@ -43,27 +41,8 @@ I have implemented my own solution to the master equation and LMF and KMC lie in
 
 3. The Quick MF2 method converges to very good output currents thanks to ADAM optimization
 
+## Runtime
 
+1. The MF1 algorithmn is the quickest (also in comparison to KMC) but lacks accuracy
 
-## TODO:
-
-- show differences between p^2-4 dist and gauss-4 dist in 1D
-
-- show distribution differences:
-    - Master Equation
-    - first order
-    - Full Gauss
-    - p^2-4 dist
-
-- show distribution differences: 3x3
-    - KMC
-    - first order
-    - Full Gauss cov != 0
-    - Full Gauss cov = 0
-    - p^2-4 dist
-
-- calc high precis currents
-
-- time dependent systems
-    - input of sine voltages
-    - fourier transform and nonlinearities
+2. QMF2-Adam method is as fast as the KMC-algorithmn and produces similar accuracy
