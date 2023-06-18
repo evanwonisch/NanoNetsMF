@@ -46,3 +46,9 @@ I have implemented my own solution to the master equation and LMF and KMC lie in
 1. The MF1 algorithmn is the quickest (also in comparison to KMC) but lacks accuracy
 
 2. QMF2-Adam method is as fast as the KMC-algorithmn and produces similar accuracy
+
+
+# Reading / Citations:
+- https://www.tandfonline.com/doi/full/10.1080/23746149.2016.1259585    (memory)
+- https://www.nature.com/articles/s42254-020-0208-2                     (physics for neuromorphic computing)
+- https://arxiv.org/pdf/1412.6980.pdf                                   (ADAM algorithmn)
