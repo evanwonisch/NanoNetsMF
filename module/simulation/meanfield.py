@@ -134,7 +134,7 @@ class MeanField:
         final_currents = np.zeros((self.network.N_particles, 6))
 
         # both ground state
-        effective_states, p = self.calc_effective_states(macrostate, True, True)
+        effective_states, p = self.calc_effective_states(macrostate, True, True) # (N_particles, 6, N_particles)
         final_currents += self.antisymmetric_tunnel_rate_islands(effective_states, self.neighbour_indices, self.island_indices) * p
 
         # both ceiling state
