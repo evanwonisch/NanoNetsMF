@@ -1,6 +1,6 @@
 import numpy as np
 
-import module.base.capacitance
+import module.components
 import module.components.utils as utils
 import module.components.CONST as CONST
 
@@ -29,49 +29,31 @@ class Network:
         self.electrode_pos = electrode_pos
 
         # Calculates the inverse capacity matrix
-        self.capacities = module.base.capacitance.build_network(Nx, Ny, Nz, electrode_pos)
+        self.capacities = {'node': 1.3775667360664756,
+                            'lead': 1.3775667360664756,
+                            'self': 4.339335218609398,
+                            'cap_mat':None}
 
-        ###########################################################
-        ############# Capacity Hack ###############################
-        ###########################################################
+        capmat = np.zeros((self.N_particles, self.N_particles))
 
-        # see https://github.com/evanwonisch/NanoNetsMF/issues/3#issue-1638173387
-
-        # if multiple electrodes are attached to one particle, we have to correct stuff
-        # of the C++ library.
-
-        unique_electrode_pos = []
-        electrode_multiplicity = []
-
-        # unique
+        # electrodes
         for pos in electrode_pos:
-            included = False
-            for pos_ in unique_electrode_pos:
-                if pos[0] == pos_[0] and pos[1] == pos_[1] and pos[2] == pos_[2]:
-                    included = True
-
-            if not included:
-                unique_electrode_pos.append(pos)
-
-        # count
-        for pos in unique_electrode_pos:
-            count = 0
-            for pos_ in electrode_pos:
-                if pos[0] == pos_[0] and pos[1] == pos_[1] and pos[2] == pos_[2]:
-                    count += 1
-
-            electrode_multiplicity.append(count)
-
-        # add missing capacities
-        for count, pos in zip(electrode_multiplicity, unique_electrode_pos):
             linear_index = self.get_linear_indices(pos)
-            capmat = np.copy(self.capacities["cap_mat"])
-            capmat[linear_index, linear_index] += self.capacities["lead"] * (count - 1)
-            self.capacities["cap_mat"] = capmat
+            capmat[linear_index, linear_index] += self.capacities["lead"]
 
-        ###########################################################
-        ###########################################################
-        ###########################################################W
+        # gate
+        for i in range(self.N_particles):
+            capmat[i,i] += self.capacities["self"]
+
+        # neighbours
+        for i in range(self.N_particles):
+            neighbours = self.get_nearest_neighbours(i)
+            for j in neighbours:
+                if not j == -1:
+                    capmat[i,i] += self.capacities["lead"]
+                    capmat[j,i] -= self.capacities["lead"]
+
+        self.capacities["cap_mat"] = capmat
 
         self.inv_cap_mat = np.linalg.inv(self.capacities["cap_mat"])
 
