@@ -32,7 +32,6 @@ A distribution function $\rho$ over phase space $\Omega$ is introduced. It assig
 The dynamics of the distribution function are governed by the master equation
 
 $$
-    \label{eq:master_eq}
     \partial_t\, \rho(\vec{n}) = \sum_{\vec{m} \neq \vec{n}}( \Gamma_{\vec{m}\,\vec{n}} \,\rho (\vec{m}) - \Gamma_{\vec{n}\,\vec{m}} \,\rho (\vec{n}))
 $$
 
