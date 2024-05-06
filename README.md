@@ -36,3 +36,6 @@ $$
 $$
 
 The equilibrium distribution function is found when $\partial_t \, \rho(\vec{n}) = 0 \;\forall \vec{n}$. Afterwards, expectation values of quantities of interest can be taken. Most importantly, the currents flowing to the system via the electrodes.
+
+
+## See Full Details here: https://arxiv.org/abs/2402.12223
